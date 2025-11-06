@@ -1,0 +1,8 @@
+*rg-far.txt*                                     Last change: 2025 November 05
+
+==============================================================================
+`RG-FAR.NVIM`                                             *rg-far-rg-far.nvim*
+
+
+
+vim:tw=78:ts=8:ft=help:norl:
