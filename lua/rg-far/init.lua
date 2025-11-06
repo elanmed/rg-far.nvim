@@ -30,7 +30,7 @@ local init_windows_buffers = function()
   vim.wo[results_winnr].conceallevel = 2
   vim.wo[results_winnr].concealcursor = "nvic"
 
-  vim.api.nvim_win_set_height(stderr_winnr, 3)
+  vim.api.nvim_win_set_height(stderr_winnr, 1)
   vim.api.nvim_win_set_height(input_winnr, 8)
   vim.api.nvim_win_set_width(results_winnr, math.floor(vim.o.columns * 2 / 3))
 
@@ -109,6 +109,8 @@ M.open = function()
           if out.code ~= 0 then
             vim.schedule(function()
               local stderr = vim.iter { rg_cmd, vim.split(out.stderr or "", "\n"), }:flatten():totable()
+              vim.api.nvim_win_set_height(nrs.stderr_winnr, #stderr + 1)
+
               vim.bo[nrs.stderr_bufnr].modifiable = true
               vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, stderr)
               vim.bo[nrs.stderr_bufnr].modifiable = false
