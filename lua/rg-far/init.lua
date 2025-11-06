@@ -1,10 +1,19 @@
 local M = {}
 
 local init_windows_buffers = function()
-  local pattern_bufnr = vim.api.nvim_create_buf(false, true)
-  local pattern_winnr = vim.api.nvim_open_win(pattern_bufnr, true, {
+  local stderr_bufnr = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(stderr_bufnr, 0, -1, false, { "[No error]", })
+  local stderr_winnr = vim.api.nvim_open_win(stderr_bufnr, true, {
     split = "right",
     win = 0,
+  })
+  vim.api.nvim_set_option_value("winbar", "rg stderr", { win = stderr_winnr, })
+  vim.api.nvim_set_option_value("statusline", " ", { win = stderr_winnr, })
+
+  local pattern_bufnr = vim.api.nvim_create_buf(false, true)
+  local pattern_winnr = vim.api.nvim_open_win(pattern_bufnr, true, {
+    split = "below",
+    win = stderr_winnr,
   })
   vim.api.nvim_set_option_value("winbar", "Pattern", { win = pattern_winnr, })
   vim.api.nvim_set_option_value("statusline", " ", { win = pattern_winnr, })
@@ -25,15 +34,17 @@ local init_windows_buffers = function()
   vim.api.nvim_set_option_value("winbar", "Results", { win = results_winnr, })
   vim.api.nvim_set_option_value("statusline", " ", { win = results_winnr, })
 
+  vim.api.nvim_win_set_height(stderr_winnr, 1)
   vim.api.nvim_win_set_height(pattern_winnr, 1)
   vim.api.nvim_win_set_height(flags_winnr, 5)
 
   vim.api.nvim_create_autocmd("WinClosed", {
-    pattern = { tostring(pattern_winnr), tostring(flags_winnr), tostring(results_winnr), },
+    pattern = { tostring(stderr_winnr), tostring(pattern_winnr), tostring(flags_winnr), tostring(results_winnr), },
     callback = function()
       if vim.api.nvim_win_is_valid(pattern_winnr) then vim.api.nvim_win_close(pattern_winnr, true) end
       if vim.api.nvim_win_is_valid(flags_winnr) then vim.api.nvim_win_close(flags_winnr, true) end
       if vim.api.nvim_win_is_valid(results_winnr) then vim.api.nvim_win_close(results_winnr, true) end
+      if vim.api.nvim_win_is_valid(stderr_winnr) then vim.api.nvim_win_close(stderr_winnr, true) end
     end
     ,
   })
@@ -41,6 +52,8 @@ local init_windows_buffers = function()
   vim.api.nvim_set_current_win(pattern_winnr)
 
   return {
+    stderr_bufnr = stderr_bufnr,
+    stderr_winnr = stderr_winnr,
     pattern_bufnr = pattern_bufnr,
     pattern_winnr = pattern_winnr,
     flags_bufnr = flags_bufnr,
@@ -52,6 +65,54 @@ end
 
 M.open = function()
   local nrs = init_windows_buffers()
+
+  local populate_results = function()
+    local pattern = vim.api.nvim_win_call(nrs.pattern_winnr, vim.api.nvim_get_current_line)
+    local flags = vim.api.nvim_buf_get_lines(nrs.flags_bufnr, 0, -1, false)
+    if #flags == 1 and flags[1] == "" then
+      flags = {}
+    end
+
+    local args = vim.iter {
+          "rg",
+          "--with-filename",
+          "--no-heading",
+          "--field-match-separator",
+          "|",
+          flags,
+          "--",
+          pattern,
+        }
+        :flatten()
+        :totable()
+
+    vim.print(table.concat(args, " "))
+
+    vim.system(args, {},
+      function(out)
+        if out.code ~= 0 then
+          vim.schedule(function()
+            local stderr = out.stderr or ""
+            vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, vim.split(stderr, "\n"))
+          end)
+          return
+        end
+        if not out.stdout then return end
+        vim.schedule(function()
+          vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, { "[No error]", })
+        end)
+
+        local lines = vim.split(out.stdout, "\n")
+        vim.schedule(function()
+          vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, lines)
+        end)
+      end)
+  end
+
+  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
+    buffer = nrs.pattern_bufnr,
+    callback = populate_results,
+  })
 end
 M.open()
 
