@@ -20,12 +20,6 @@ local init_windows_buffers = function()
   vim.api.nvim_set_option_value("statusline", " ", { win = input_winnr, })
 
   local results_bufnr = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter", }, {
-    buffer = results_bufnr,
-    callback = function()
-      vim.cmd [[syntax match ConcealPipe /^[^|]*|[^|]*|/ conceal]]
-    end,
-  })
   local results_winnr = vim.api.nvim_open_win(results_bufnr, true, {
     split = "below",
     win = input_winnr,
@@ -42,6 +36,11 @@ local init_windows_buffers = function()
   vim.api.nvim_set_option_value("filetype", "rg-far", { buf = stderr_bufnr, })
   vim.api.nvim_set_option_value("filetype", "rg-far", { buf = input_bufnr, })
   vim.api.nvim_set_option_value("filetype", "rg-far", { buf = results_bufnr, })
+
+  vim.api.nvim_buf_call(results_bufnr, function()
+    vim.cmd [[syntax on]]
+    vim.cmd [[syntax match ConcealPipe /^[^|]*|[^|]*|/ conceal]]
+  end)
 
   vim.api.nvim_create_autocmd("WinClosed", {
     pattern = { tostring(stderr_winnr), tostring(input_winnr), tostring(results_winnr), },
