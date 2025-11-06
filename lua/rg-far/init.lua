@@ -8,26 +8,27 @@ local init_windows_buffers = function()
     split = "right",
     win = 0,
   })
-  vim.api.nvim_set_option_value("winbar", "Rg stderr", { win = stderr_winnr, })
-  vim.api.nvim_set_option_value("statusline", " ", { win = stderr_winnr, })
+  vim.bo[stderr_bufnr].modifiable = false
+  vim.wo[stderr_winnr].winbar = "Rg stderr"
+  vim.wo[stderr_winnr].statusline = " "
 
   local input_bufnr = vim.api.nvim_create_buf(false, true)
   local input_winnr = vim.api.nvim_open_win(input_bufnr, true, {
     split = "below",
     win = stderr_winnr,
   })
-  vim.api.nvim_set_option_value("winbar", "Input", { win = input_winnr, })
-  vim.api.nvim_set_option_value("statusline", " ", { win = input_winnr, })
+  vim.wo[input_winnr].winbar = "Input"
+  vim.wo[input_winnr].statusline = " "
 
   local results_bufnr = vim.api.nvim_create_buf(false, true)
   local results_winnr = vim.api.nvim_open_win(results_bufnr, true, {
     split = "below",
     win = input_winnr,
   })
-  vim.api.nvim_set_option_value("winbar", "Results", { win = results_winnr, })
-  vim.api.nvim_set_option_value("statusline", " ", { win = results_winnr, })
-  vim.api.nvim_set_option_value("conceallevel", 2, { win = results_winnr, })
-  vim.api.nvim_set_option_value("concealcursor", "nvic", { win = results_winnr, })
+  vim.wo[results_winnr].winbar = "Results"
+  vim.wo[results_winnr].statusline = " "
+  vim.wo[results_winnr].conceallevel = 2
+  vim.wo[results_winnr].concealcursor = "nvic"
 
   vim.api.nvim_win_set_height(stderr_winnr, 3)
   vim.api.nvim_win_set_height(input_winnr, 8)
@@ -108,13 +109,17 @@ M.open = function()
           if out.code ~= 0 then
             vim.schedule(function()
               local stderr = vim.iter { rg_cmd, vim.split(out.stderr or "", "\n"), }:flatten():totable()
+              vim.bo[nrs.stderr_bufnr].modifiable = true
               vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, stderr)
+              vim.bo[nrs.stderr_bufnr].modifiable = false
             end)
             return
           end
           if not out.stdout then return end
           vim.schedule(function()
+            vim.bo[nrs.stderr_bufnr].modifiable = true
             vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, { rg_cmd, })
+            vim.bo[nrs.stderr_bufnr].modifiable = false
           end)
 
           local lines = vim.split(out.stdout, "\n")
