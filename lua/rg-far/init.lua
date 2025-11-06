@@ -1,5 +1,7 @@
 local M = {}
 
+local ns_id = vim.api.nvim_create_namespace "rg-far"
+
 local init_windows_buffers = function()
   local stderr_bufnr = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(stderr_bufnr, 0, -1, false, { "[No error]", })
@@ -119,7 +121,25 @@ M.open = function()
 
           local lines = vim.split(out.stdout, "\n")
           vim.schedule(function()
+            table.insert(lines, 1, "")
             vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, lines)
+          end)
+          vim.schedule(function()
+            local prev_filename = nil
+            for idx_1i, line in ipairs(lines) do
+              local filename = unpack(vim.split(line, "|"))
+              if filename ~= prev_filename then
+                prev_filename = filename
+                local idx_0i = idx_1i - 1
+                vim.api.nvim_buf_set_extmark(nrs.results_bufnr, ns_id, idx_0i, 0, {
+                  virt_lines = {
+                    { { "", "", }, },
+                    { { filename, "Search", }, },
+                  },
+                  virt_lines_above = true,
+                })
+              end
+            end
           end)
         end)
     end)
