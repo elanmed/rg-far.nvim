@@ -103,8 +103,6 @@ M.open = function()
           :flatten()
           :totable()
 
-      vim.print(table.concat(args, " "))
-
       vim.system(args, {},
         function(out)
           if out.code ~= 0 then
@@ -151,7 +149,7 @@ M.open = function()
   })
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
-    buffer = nrs.pattern_bufnr,
+    buffer = nrs.flags_bufnr,
     callback = populate_results,
   })
 end
