@@ -23,16 +23,24 @@ local init_windows_buffers = function()
     split = "below",
     win = pattern_winnr,
   })
-  vim.api.nvim_set_option_value("winbar", "Flags", { win = flags_winnr, })
+  vim.api.nvim_set_option_value("winbar", "Flags (one per line)", { win = flags_winnr, })
   vim.api.nvim_set_option_value("statusline", " ", { win = flags_winnr, })
 
   local results_bufnr = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter", }, {
+    buffer = results_bufnr,
+    callback = function()
+      vim.cmd [[syntax match ConcealPipe /^[^|]*|[^|]*|/ conceal]]
+    end,
+  })
   local results_winnr = vim.api.nvim_open_win(results_bufnr, true, {
     split = "below",
     win = flags_winnr,
   })
   vim.api.nvim_set_option_value("winbar", "Results", { win = results_winnr, })
   vim.api.nvim_set_option_value("statusline", " ", { win = results_winnr, })
+  vim.api.nvim_set_option_value("conceallevel", 2, { win = results_winnr, })
+  vim.api.nvim_set_option_value("concealcursor", "nvic", { win = results_winnr, })
 
   vim.api.nvim_win_set_height(stderr_winnr, 1)
   vim.api.nvim_win_set_height(pattern_winnr, 1)
@@ -83,6 +91,7 @@ M.open = function()
             "rg",
             "--with-filename",
             "--no-heading",
+            "--line-number",
             "--field-match-separator",
             "|",
             flags,
