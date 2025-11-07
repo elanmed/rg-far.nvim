@@ -26,6 +26,11 @@ end
 --- @param results_bufnr number
 local replace = function(results_bufnr)
   local lines = vim.api.nvim_buf_get_lines(results_bufnr, 0, -1, false)
+  -- TODO:
+  -- coroutinify
+  -- lock buffers while replacing
+  -- confirm message
+  -- complete message (progress bar?)
   for _, line in ipairs(lines) do
     if line == "" then goto continue end
 
@@ -94,6 +99,7 @@ local init_windows_buffers = function()
 
   vim.api.nvim_win_set_height(stderr_winnr, 1)
   vim.api.nvim_win_set_height(input_winnr, 8)
+  -- TODO: configuration opt
   vim.api.nvim_win_set_width(results_winnr, math.floor(vim.o.columns * 2 / 3))
 
   vim.api.nvim_set_option_value("filetype", "rg-far", { buf = stderr_bufnr, })
