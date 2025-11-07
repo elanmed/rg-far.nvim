@@ -19,6 +19,23 @@ local init_windows_buffers = function()
   })
   vim.wo[input_winnr].winbar = "Input"
   vim.wo[input_winnr].statusline = " "
+  vim.api.nvim_buf_set_lines(input_bufnr, 0, -1, false, { "", "", "", })
+
+  vim.api.nvim_buf_set_extmark(input_bufnr, ns_id, 0, 0, {
+    virt_lines = {
+      { { "Find", "Search", }, },
+    },
+  })
+  vim.api.nvim_buf_set_extmark(input_bufnr, ns_id, 1, 0, {
+    virt_lines = {
+      { { "Replace", "Search", }, },
+    },
+  })
+  vim.api.nvim_buf_set_extmark(input_bufnr, ns_id, 2, 0, {
+    virt_lines = {
+      { { "Flags (one per line)", "Search", }, },
+    },
+  })
 
   local results_bufnr = vim.api.nvim_create_buf(false, true)
   local results_winnr = vim.api.nvim_open_win(results_bufnr, true, {
@@ -81,7 +98,6 @@ M.open = function()
         if #replace == 1 and replace[1] == "" then return {} end
         return { "--replace", replace[1], }
       end)()
-      vim.print(replace_flag)
 
       local flags = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 2, -1, false)
       flags = vim.tbl_filter(function(flag) return flag ~= "" end, flags)
@@ -126,7 +142,6 @@ M.open = function()
 
           local lines = vim.split(out.stdout, "\n")
           vim.schedule(function()
-            table.insert(lines, 1, "")
             vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, lines)
           end)
 
@@ -139,10 +154,9 @@ M.open = function()
                 local idx_0i = idx_1i - 1
                 vim.api.nvim_buf_set_extmark(nrs.results_bufnr, ns_id, idx_0i, 0, {
                   virt_lines = {
-                    { { "", "", }, },
                     { { filename, "Search", }, },
+                    { { "", "", }, },
                   },
-                  virt_lines_above = true,
                 })
               end
             end
