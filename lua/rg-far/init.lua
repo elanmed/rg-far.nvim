@@ -33,28 +33,36 @@ local replace = function(results_bufnr)
   end
 
   -- TODO:
-  -- coroutinify
   -- lock buffers while replacing
   -- complete message (progress bar?)
-  for _, line in ipairs(lines) do
-    if line == "" then goto continue end
+  run_batch {
+    fn = function()
+      for idx, line in ipairs(lines) do
+        if line == "" then goto continue end
 
-    local filename, row_1i, text = unpack(vim.split(line, "|"))
-    row_1i = tonumber(row_1i)
-    local row_0i = row_1i - 1
+        local filename, row_1i, text = unpack(vim.split(line, "|"))
+        row_1i = tonumber(row_1i)
+        local row_0i = row_1i - 1
 
-    local bufnr = vim.fn.bufnr(filename)
-    if bufnr == -1 then
-      local file_lines = vim.fn.readfile(filename)
-      file_lines[row_1i] = text
-      vim.fn.writefile(file_lines, filename)
-    else
-      vim.api.nvim_buf_set_lines(bufnr, row_0i, row_0i + 1, false, { text, })
-      vim.api.nvim_buf_call(bufnr, vim.cmd.write)
-    end
+        local bufnr = vim.fn.bufnr(filename)
+        if bufnr == -1 then
+          local file_lines = vim.fn.readfile(filename)
+          file_lines[row_1i] = text
+          vim.fn.writefile(file_lines, filename)
+        else
+          vim.api.nvim_buf_set_lines(bufnr, row_0i, row_0i + 1, false, { text, })
+          vim.api.nvim_buf_call(bufnr, vim.cmd.write)
+        end
 
-    ::continue::
-  end
+        if idx % 50 == 0 then
+          coroutine.yield()
+        end
+
+        ::continue::
+      end
+    end,
+
+  }
 end
 
 local init_windows_buffers = function()
