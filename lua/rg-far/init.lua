@@ -30,14 +30,12 @@ end
 --- @param opts ReplaceOpts
 local replace = function(opts)
   local lines = vim.api.nvim_buf_get_lines(opts.results_bufnr, 0, -1, false)
-  local option = vim.fn.confirm(("Apply %d replacements?"):format(#lines), "&Yes\n&No", 2)
+  local option = vim.fn.confirm(("[rg-far] Apply %d replacements?"):format(#lines), "&Yes\n&No", 2)
   if option ~= 1 then
     vim.notify("[rg-far] Aborting replace", vim.log.levels.INFO)
     return
   end
 
-  -- TODO:
-  -- complete message (progress bar?)
   run_batch {
     fn = function()
       vim.bo[opts.stderr_bufnr].modifiable = false
@@ -70,6 +68,7 @@ local replace = function(opts)
     end,
 
     on_complete = function()
+      vim.notify("[rg-far] Replace complete", vim.log.levels.INFO)
       vim.bo[opts.stderr_bufnr].modifiable = true
       vim.bo[opts.input_bufnr].modifiable = true
       vim.bo[opts.results_bufnr].modifiable = true
