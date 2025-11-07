@@ -23,9 +23,13 @@ local run_batch = function(opts)
   step()
 end
 
---- @param results_bufnr number
-local replace = function(results_bufnr)
-  local lines = vim.api.nvim_buf_get_lines(results_bufnr, 0, -1, false)
+--- @class ReplaceOpts
+--- @field stderr_bufnr number
+--- @field input_bufnr number
+--- @field results_bufnr number
+--- @param opts ReplaceOpts
+local replace = function(opts)
+  local lines = vim.api.nvim_buf_get_lines(opts.results_bufnr, 0, -1, false)
   local option = vim.fn.confirm(("Apply %d replacements?"):format(#lines), "&Yes\n&No", 2)
   if option ~= 1 then
     vim.notify("[rg-far] Aborting replace", vim.log.levels.INFO)
@@ -33,10 +37,13 @@ local replace = function(results_bufnr)
   end
 
   -- TODO:
-  -- lock buffers while replacing
   -- complete message (progress bar?)
   run_batch {
     fn = function()
+      vim.bo[opts.stderr_bufnr].modifiable = false
+      vim.bo[opts.input_bufnr].modifiable = false
+      vim.bo[opts.results_bufnr].modifiable = false
+
       for idx, line in ipairs(lines) do
         if line == "" then goto continue end
 
@@ -62,6 +69,11 @@ local replace = function(results_bufnr)
       end
     end,
 
+    on_complete = function()
+      vim.bo[opts.stderr_bufnr].modifiable = true
+      vim.bo[opts.input_bufnr].modifiable = true
+      vim.bo[opts.results_bufnr].modifiable = true
+    end,
   }
 end
 
@@ -137,7 +149,11 @@ local init_windows_buffers = function()
 
   for _, buffer in ipairs { stderr_bufnr, input_bufnr, results_bufnr, } do
     vim.keymap.set("n", "<Plug>RgFarReplace", function()
-      replace(results_bufnr)
+      replace {
+        stderr_bufnr = stderr_bufnr,
+        input_bufnr = input_bufnr,
+        results_bufnr = results_bufnr,
+      }
     end, { buffer = buffer, })
   end
 
