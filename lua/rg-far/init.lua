@@ -153,15 +153,19 @@ M.open = function()
       vim.fn.timer_stop(timer_id)
     end
 
+    local clear_results_buf = function()
+      vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, {})
+      vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
+      return
+    end
+
     timer_id = vim.fn.timer_start(250, function()
       global_batch_id = global_batch_id + 1
       local curr_batch_id = global_batch_id
 
       local find = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 0, 1, false)[1]
       if find == "" then
-        vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, {})
-        vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
-        return
+        return clear_results_buf()
       end
 
       local replace_flag = (function()
@@ -201,10 +205,15 @@ M.open = function()
             vim.bo[nrs.stderr_bufnr].modifiable = true
             vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, stderr)
             vim.bo[nrs.stderr_bufnr].modifiable = false
+
+            clear_results_buf()
           end)
           return
         end
-        if not out.stdout then return end
+
+        if not out.stdout then
+          return vim.schedule(clear_results_buf)
+        end
 
         vim.schedule(function()
           vim.bo[nrs.stderr_bufnr].modifiable = true
@@ -217,8 +226,7 @@ M.open = function()
         vim.schedule(function()
           run_batch {
             fn = function()
-              vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, {})
-              vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
+              clear_results_buf()
 
               local prev_filename = nil
               for idx_1i, line in ipairs(lines) do
