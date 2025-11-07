@@ -26,10 +26,15 @@ end
 --- @param results_bufnr number
 local replace = function(results_bufnr)
   local lines = vim.api.nvim_buf_get_lines(results_bufnr, 0, -1, false)
+  local option = vim.fn.confirm(("Apply %d replacements?"):format(#lines), "&Yes\n&No", 2)
+  if option ~= 1 then
+    vim.notify("[rg-far] Aborting replace", vim.log.levels.INFO)
+    return
+  end
+
   -- TODO:
   -- coroutinify
   -- lock buffers while replacing
-  -- confirm message
   -- complete message (progress bar?)
   for _, line in ipairs(lines) do
     if line == "" then goto continue end
