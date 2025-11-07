@@ -23,6 +23,30 @@ local run_batch = function(opts)
   step()
 end
 
+--- @param results_bufnr number
+local replace = function(results_bufnr)
+  local lines = vim.api.nvim_buf_get_lines(results_bufnr, 0, -1, false)
+  for _, line in ipairs(lines) do
+    if line == "" then goto continue end
+
+    local filename, row_1i, text = unpack(vim.split(line, "|"))
+    row_1i = tonumber(row_1i)
+    local row_0i = row_1i - 1
+
+    local bufnr = vim.fn.bufnr(filename)
+    if bufnr == -1 then
+      local file_lines = vim.fn.readfile(filename)
+      file_lines[row_1i] = text
+      vim.fn.writefile(file_lines, filename)
+    else
+      vim.api.nvim_buf_set_lines(bufnr, row_0i, row_0i + 1, false, { text, })
+      vim.api.nvim_buf_call(bufnr, vim.cmd.write)
+    end
+
+    ::continue::
+  end
+end
+
 local init_windows_buffers = function()
   local stderr_bufnr = vim.api.nvim_create_buf(false, true)
   local stderr_winnr = vim.api.nvim_open_win(stderr_bufnr, true, {
@@ -44,17 +68,17 @@ local init_windows_buffers = function()
 
   vim.api.nvim_buf_set_extmark(input_bufnr, ns_id, 0, 0, {
     virt_lines = {
-      { { "Find", "Search", }, },
+      { { "Find", "ModeMsg", }, },
     },
   })
   vim.api.nvim_buf_set_extmark(input_bufnr, ns_id, 1, 0, {
     virt_lines = {
-      { { "Replace", "Search", }, },
+      { { "Replace", "ModeMsg", }, },
     },
   })
   vim.api.nvim_buf_set_extmark(input_bufnr, ns_id, 2, 0, {
     virt_lines = {
-      { { "Flags (one per line)", "Search", }, },
+      { { "Flags (one per line)", "ModeMsg", }, },
     },
   })
 
@@ -92,6 +116,12 @@ local init_windows_buffers = function()
 
   vim.api.nvim_set_current_win(input_winnr)
 
+  for _, buffer in ipairs { stderr_bufnr, input_bufnr, results_bufnr, } do
+    vim.keymap.set("n", "<Plug>RgFarReplace", function()
+      replace(results_bufnr)
+    end, { buffer = buffer, })
+  end
+
   return {
     stderr_bufnr = stderr_bufnr,
     stderr_winnr = stderr_winnr,
@@ -101,6 +131,7 @@ local init_windows_buffers = function()
     results_winnr = results_winnr,
   }
 end
+
 
 M.open = function()
   local nrs = init_windows_buffers()
@@ -190,7 +221,7 @@ M.open = function()
                   prev_filename = filename
                   vim.api.nvim_buf_set_extmark(nrs.results_bufnr, ns_id, idx_0i, 0, {
                     virt_lines = {
-                      { { filename, "Search", }, },
+                      { { filename, "ModeMsg", }, },
                       { { "", "", }, },
                     },
                   })
@@ -212,6 +243,5 @@ M.open = function()
     callback = populate_results,
   })
 end
-M.open()
 
 return M
