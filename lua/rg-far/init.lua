@@ -1,6 +1,27 @@
 local M = {}
 
 local ns_id = vim.api.nvim_create_namespace "rg-far"
+local global_batch_id = 0
+
+--- @class RunBatchOpts
+--- @field fn function
+--- @field on_complete? function
+
+--- @param opts RunBatchOpts
+local run_batch = function(opts)
+  local co = coroutine.create(opts.fn)
+
+  local function step()
+    coroutine.resume(co)
+    if coroutine.status(co) == "suspended" then
+      vim.schedule(step)
+    elseif opts.on_complete then
+      opts.on_complete()
+    end
+  end
+
+  step()
+end
 
 local init_windows_buffers = function()
   local stderr_bufnr = vim.api.nvim_create_buf(false, true)
@@ -91,7 +112,16 @@ M.open = function()
     end
 
     timer_id = vim.fn.timer_start(250, function()
+      global_batch_id = global_batch_id + 1
+      local curr_batch_id = global_batch_id
+
       local find = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 0, 1, false)[1]
+      if find == "" then
+        vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, {})
+        vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
+        return
+      end
+
       local replace_flag = (function()
         local replace = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 1, 2, false)
         if #replace == 0 then return {} end
@@ -120,48 +150,60 @@ M.open = function()
 
       local rg_cmd = table.concat(args, " ")
 
-      vim.system(args, {},
-        function(out)
-          if out.code ~= 0 then
-            vim.schedule(function()
-              local stderr = vim.iter { rg_cmd, vim.split(out.stderr or "", "\n"), }:flatten():totable()
-              vim.api.nvim_win_set_height(nrs.stderr_winnr, #stderr + 1)
-
-              vim.bo[nrs.stderr_bufnr].modifiable = true
-              vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, stderr)
-              vim.bo[nrs.stderr_bufnr].modifiable = false
-            end)
-            return
-          end
-          if not out.stdout then return end
+      vim.system(args, {}, function(out)
+        if out.code ~= 0 then
           vim.schedule(function()
+            local stderr = vim.iter { rg_cmd, vim.split(out.stderr or "", "\n"), }:flatten():totable()
+            vim.api.nvim_win_set_height(nrs.stderr_winnr, #stderr + 1)
+
             vim.bo[nrs.stderr_bufnr].modifiable = true
-            vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, { rg_cmd, })
+            vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, stderr)
             vim.bo[nrs.stderr_bufnr].modifiable = false
           end)
+          return
+        end
+        if not out.stdout then return end
 
-          local lines = vim.split(out.stdout, "\n")
-          vim.schedule(function()
-            vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, lines)
-          end)
-
-          vim.schedule(function()
-            local prev_filename = nil
-            for idx_1i, line in ipairs(lines) do
-              local filename = unpack(vim.split(line, "|"))
-              if filename ~= prev_filename then
-                prev_filename = filename
-                local idx_0i = idx_1i - 1
-                vim.api.nvim_buf_set_extmark(nrs.results_bufnr, ns_id, idx_0i, 0, {
-                  virt_lines = {
-                    { { filename, "Search", }, },
-                    { { "", "", }, },
-                  },
-                })
-              end
-            end
-          end)
+        vim.schedule(function()
+          vim.bo[nrs.stderr_bufnr].modifiable = true
+          vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, { rg_cmd, })
+          vim.bo[nrs.stderr_bufnr].modifiable = false
         end)
+
+        local lines = vim.split(out.stdout, "\n")
+
+        vim.schedule(function()
+          run_batch {
+            fn = function()
+              vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, {})
+              vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
+
+              local prev_filename = nil
+              for idx_1i, line in ipairs(lines) do
+                if curr_batch_id ~= global_batch_id then return end
+
+                local idx_0i = idx_1i - 1
+                vim.api.nvim_buf_set_lines(nrs.results_bufnr, idx_0i, idx_0i, false, { line, })
+
+                local filename = unpack(vim.split(line, "|"))
+                if filename ~= prev_filename then
+                  prev_filename = filename
+                  vim.api.nvim_buf_set_extmark(nrs.results_bufnr, ns_id, idx_0i, 0, {
+                    virt_lines = {
+                      { { filename, "Search", }, },
+                      { { "", "", }, },
+                    },
+                  })
+                end
+
+                if idx_1i % 50 == 0 then
+                  coroutine.yield()
+                end
+              end
+            end,
+          }
+        end)
+      end)
     end)
   end
 
