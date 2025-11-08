@@ -86,7 +86,7 @@ local init_windows_buffers = function()
     win = 0,
   })
   vim.bo[stderr_bufnr].modifiable = false
-  vim.wo[stderr_winnr].winbar = "Rg stderr"
+  vim.wo[stderr_winnr].winbar = "Rg command and stderr"
   vim.wo[stderr_winnr].statusline = " "
 
   local input_bufnr = vim.api.nvim_create_buf(false, true)
@@ -97,22 +97,6 @@ local init_windows_buffers = function()
   vim.wo[input_winnr].winbar = "Input"
   vim.wo[input_winnr].statusline = " "
   vim.api.nvim_buf_set_lines(input_bufnr, 0, -1, false, { "", "", "", })
-
-  vim.api.nvim_buf_set_extmark(input_bufnr, ns_id, 0, 0, {
-    virt_lines = {
-      { { "Find", "ModeMsg", }, },
-    },
-  })
-  vim.api.nvim_buf_set_extmark(input_bufnr, ns_id, 1, 0, {
-    virt_lines = {
-      { { "Replace", "ModeMsg", }, },
-    },
-  })
-  vim.api.nvim_buf_set_extmark(input_bufnr, ns_id, 2, 0, {
-    virt_lines = {
-      { { "Flags (one per line)", "ModeMsg", }, },
-    },
-  })
 
   local results_bufnr = vim.api.nvim_create_buf(false, true)
   local results_winnr = vim.api.nvim_open_win(results_bufnr, true, {
@@ -169,6 +153,29 @@ local init_windows_buffers = function()
 end
 
 --- @param nrs NrOpts
+local highlight_input_buf = function(nrs)
+  vim.api.nvim_buf_clear_namespace(nrs.input_bufnr, ns_id, 0, -1)
+  local lines = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 0, -1, false)
+
+  --- @class SetInputBufExtmarkOpts
+  --- @field idx_1i number
+  --- @field label string
+  --- @param opts SetInputBufExtmarkOpts
+  local set_input_buf_extmark = function(opts)
+    local idx_0i = opts.idx_1i - 1
+    vim.api.nvim_buf_set_extmark(nrs.input_bufnr, ns_id, idx_0i, 0, {
+      virt_lines = {
+        { { opts.label, "ModeMsg", }, },
+      },
+    })
+  end
+
+  if #lines >= 1 then set_input_buf_extmark { idx_1i = 1, label = "Find", } end
+  if #lines >= 2 then set_input_buf_extmark { idx_1i = 2, label = "Replace", } end
+  if #lines >= 3 then set_input_buf_extmark { idx_1i = #lines, label = "Flags (one per line)", } end
+end
+
+--- @param nrs NrOpts
 local clear_results_buf = function(nrs)
   vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, {})
   vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
@@ -176,7 +183,7 @@ local clear_results_buf = function(nrs)
 end
 
 --- @param nrs NrOpts
-local highlight_results = function(nrs)
+local highlight_results_buf = function(nrs)
   run_batch {
     fn = function()
       vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
@@ -304,7 +311,7 @@ local populate_and_highlight_results = function(nrs)
           on_complete = function()
             vim.schedule(function()
               vim.wo[nrs.results_winnr].winbar = ("Results (%d)"):format(vim.api.nvim_buf_line_count(nrs.results_bufnr))
-              highlight_results(nrs)
+              highlight_results_buf(nrs)
             end)
           end,
         }
@@ -315,19 +322,20 @@ end
 
 M.open = function()
   local nrs = init_windows_buffers()
+  highlight_input_buf(nrs)
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
     buffer = nrs.input_bufnr,
-    callback = function() populate_and_highlight_results(nrs) end,
+    callback = function()
+      highlight_input_buf(nrs)
+      populate_and_highlight_results(nrs)
+    end,
   })
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
     buffer = nrs.results_bufnr,
-    callback = function() highlight_results(nrs) end,
+    callback = function() highlight_results_buf(nrs) end,
   })
 end
-
--- M.open()
--- vim.keymap.set("n", "<leader>zz", "<Plug>RgFarReplace")
 
 return M
