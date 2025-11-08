@@ -2,6 +2,8 @@
 
 A minimal find-and-replace interface powered by ripgrep
 
+![demo](https://elanmed.dev/nvim-plugins/marks.png)
+
 ### Overview
 
 - ~300 LOC, 1 source file, 1 test file (TODO)
