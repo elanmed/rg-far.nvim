@@ -68,7 +68,7 @@ local replace = function(nrs)
           vim.fn.writefile(file_lines, filename)
         else
           vim.api.nvim_buf_set_lines(bufnr, row_0i, row_0i + 1, false, { text, })
-          vim.api.nvim_buf_call(bufnr, vim.cmd.write)
+          vim.api.nvim_buf_call(bufnr, function() vim.cmd "silent! write" end)
         end
 
         if idx % 50 == 0 then
