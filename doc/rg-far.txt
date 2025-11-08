@@ -1,4 +1,4 @@
-*rg-far.txt*                                     Last change: 2025 November 07
+*rg-far.txt*                                     Last change: 2025 November 08
 
 ==============================================================================
 Table of Contents                                   *rg-far-table-of-contents*
@@ -56,12 +56,15 @@ API                                                               *rg-far-api*
 CONFIGURATION                                           *rg-far-configuration*
 
 >lua
-    -- defaults
+    -- default:
     vim.g.rg_far = {
       drawer_width = 0.66 -- a number between 0 and 1
       debounce = 250, -- debounce when calling `rg` when the input buffer changes
       batch_size = 50, -- loop iterations processed before calling `coroutine.yield`
     }
+    
+    -- default:
+    vim.api.nvim_set_hl(0, "RgFarLabel", { link = "ModeMsg", })
 <
 
                                                                               

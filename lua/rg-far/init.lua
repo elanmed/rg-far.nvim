@@ -214,7 +214,7 @@ local highlight_input_buf = function(nrs)
     local idx_0i = opts.idx_1i - 1
     vim.api.nvim_buf_set_extmark(nrs.input_bufnr, ns_id, idx_0i, 0, {
       virt_lines = {
-        { { opts.label, "ModeMsg", }, },
+        { { opts.label, "RgFarLabel", }, },
       },
     })
   end
@@ -361,6 +361,13 @@ M.open = function()
     buffer = nrs.results_bufnr,
     callback = function() highlight_results_buf(nrs) end,
   })
+end
+
+vim.g.rg_far_setup_called = false
+M.setup = function()
+  if vim.g.rg_far_setup_called then return end
+  vim.g.rg_far_setup_called = true
+  vim.api.nvim_set_hl(0, "RgFarLabel", { default = true, link = "ModeMsg", })
 end
 
 return M
