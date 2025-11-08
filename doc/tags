@@ -1,5 +1,6 @@
 rg-far-<plug>rgfarreplace	rg-far.txt	/*rg-far-<plug>rgfarreplace*
 rg-far-api	rg-far.txt	/*rg-far-api*
+rg-far-configuration	rg-far.txt	/*rg-far-configuration*
 rg-far-overview	rg-far.txt	/*rg-far-overview*
 rg-far-performance	rg-far.txt	/*rg-far-performance*
 rg-far-plug-remaps	rg-far.txt	/*rg-far-plug-remaps*

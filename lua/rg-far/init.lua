@@ -1,5 +1,37 @@
 local M = {}
 
+--- @generic T
+--- @param val T | nil
+--- @param default_val T
+--- @return T
+local default = function(val, default_val)
+  if val == nil then
+    return default_val
+  end
+  return val
+end
+
+--- @param tbl table
+--- @param ... any
+local tbl_get = function(tbl, ...)
+  if tbl == nil then return nil end
+  return vim.tbl_get(tbl, ...)
+end
+
+--- @class RgFarOpts
+--- @field drawer_width? number
+--- @field debounce? number
+--- @field batch_size? number
+
+local get_gopts = function()
+  --- @type RgFarOpts
+  local opts = {}
+  opts.drawer_width = default(tbl_get(vim.g.rg_far, "drawer_width"), 0.66)
+  opts.debounce = default(tbl_get(vim.g.rg_far, "debounce"), 250)
+  opts.batch_size = default(tbl_get(vim.g.rg_far, "batch_size"), 50)
+  return opts
+end
+
 local ns_id = vim.api.nvim_create_namespace "rg-far"
 local global_batch_id = 0
 local system_obj
@@ -41,7 +73,10 @@ end
 
 --- @param nrs NrOpts
 local replace = function(nrs)
+  local gopts = get_gopts()
   local lines = vim.api.nvim_buf_get_lines(nrs.results_bufnr, 0, -1, false)
+  lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
+
   local option = vim.fn.confirm(("[rg-far] Apply %d replacements?"):format(#lines), "&Yes\n&No", 2)
   if option ~= 1 then
     vim.notify("[rg-far] Aborting replace", vim.log.levels.INFO)
@@ -54,9 +89,7 @@ local replace = function(nrs)
       vim.bo[nrs.input_bufnr].modifiable = false
       vim.bo[nrs.results_bufnr].modifiable = false
 
-      for idx, line in ipairs(lines) do
-        if line == "" then goto continue end
-
+      for idx_1i, line in ipairs(lines) do
         local filename, row_1i, text = unpack(vim.split(line, "|"))
         row_1i = tonumber(row_1i)
         local row_0i = row_1i - 1
@@ -71,11 +104,9 @@ local replace = function(nrs)
           vim.api.nvim_buf_call(bufnr, function() vim.cmd "silent! write" end)
         end
 
-        if idx % 50 == 0 then
+        if idx_1i % gopts.batch_size == 0 then
           coroutine.yield()
         end
-
-        ::continue::
       end
     end,
 
@@ -92,6 +123,8 @@ local replace = function(nrs)
 end
 
 local init_windows_buffers = function()
+  local gopts = get_gopts()
+
   local stderr_bufnr = vim.api.nvim_create_buf(false, true)
   local stderr_winnr = vim.api.nvim_open_win(stderr_bufnr, true, {
     split = "right",
@@ -122,8 +155,7 @@ local init_windows_buffers = function()
 
   vim.api.nvim_win_set_height(stderr_winnr, 1)
   vim.api.nvim_win_set_height(input_winnr, 3 + 1)
-  -- TODO: configuration opt
-  vim.api.nvim_win_set_width(results_winnr, math.floor(vim.o.columns * 2 / 3))
+  vim.api.nvim_win_set_width(results_winnr, math.floor(vim.o.columns * gopts.drawer_width))
 
   vim.bo[stderr_bufnr].filetype = "rg-far"
   vim.bo[input_bufnr].filetype = "rg-far"
@@ -196,6 +228,7 @@ end
 
 --- @param nrs NrOpts
 local highlight_results_buf = function(nrs)
+  local gopts = get_gopts()
   run_batch {
     fn = function()
       vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
@@ -223,7 +256,7 @@ local highlight_results_buf = function(nrs)
           })
         end
 
-        if idx_1i % 50 == 0 then
+        if idx_1i % gopts.batch_size == 0 then
           coroutine.yield()
         end
       end
@@ -236,8 +269,9 @@ local timer_id = nil
 local populate_and_highlight_results = function(nrs)
   if timer_id then vim.fn.timer_stop(timer_id) end
   if system_obj then system_obj:kill "sigterm" end
+  local gopts = get_gopts()
 
-  timer_id = vim.fn.timer_start(250, function()
+  timer_id = vim.fn.timer_start(gopts.debounce, function()
     global_batch_id = global_batch_id + 1
     local curr_batch_id = global_batch_id
 
