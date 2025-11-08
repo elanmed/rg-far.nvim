@@ -264,7 +264,7 @@ local populate_and_highlight_results = function(nrs)
     -- TODO: shell escape
     local rg_cmd = table.concat(args, " ")
 
-    vim.system(args, {}, function(out)
+    system_obj = vim.system(args, {}, function(out)
       if out.code ~= 0 then
         vim.schedule(function()
           local stderr = vim.iter { rg_cmd, vim.split(out.stderr or "", "\n"), }:flatten():totable()
@@ -298,7 +298,10 @@ local populate_and_highlight_results = function(nrs)
             clear_results_buf(nrs)
 
             for idx_1i, line in ipairs(lines) do
-              if curr_batch_id ~= global_batch_id then return end
+              if curr_batch_id ~= global_batch_id then
+                system_obj:kill "sigterm"
+                return
+              end
 
               local idx_0i = idx_1i - 1
               vim.api.nvim_buf_set_lines(nrs.results_bufnr, idx_0i, idx_0i, false, { line, })
