@@ -65,6 +65,14 @@ CONFIGURATION                                           *rg-far-configuration*
     
     -- default:
     vim.api.nvim_set_hl(0, "RgFarLabel", { link = "ModeMsg", })
+    
+    -- example, not default:
+    vim.api.nvim_create_autocmd("FileType", {
+      pattern = "rg-far",
+      callback = function()
+        vim.keymap.set("n", "<leader>r", "<Plug>RgFarReplace")
+      end,
+    })
 <
 
                                                                               

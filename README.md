@@ -31,12 +31,23 @@ M.open = function() end
 ### Configuration
 
 ```lua
--- defaults
+-- default:
 vim.g.rg_far = {
   drawer_width = 0.66 -- a number between 0 and 1
   debounce = 250, -- debounce when calling `rg` when the input buffer changes
   batch_size = 50, -- loop iterations processed before calling `coroutine.yield`
 }
+
+-- default:
+vim.api.nvim_set_hl(0, "RgFarLabel", { link = "ModeMsg", })
+
+-- example, not default:
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "rg-far",
+  callback = function()
+    vim.keymap.set("n", "<leader>r", "<Plug>RgFarReplace")
+  end,
+})
 ```
 
 ### Plug remaps
