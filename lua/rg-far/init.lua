@@ -239,10 +239,10 @@ local populate_and_highlight_results = function(nrs)
     end
 
     local replace_flag = (function()
-      local replace = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 1, 2, false)
-      if #replace == 0 then return {} end
-      if #replace == 1 and replace[1] == "" then return {} end
-      return { "--replace", replace[1], }
+      local replace_lines = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 1, 2, false)
+      if #replace_lines == 0 then return {} end
+      if #replace_lines == 1 and replace_lines[1] == "" then return {} end
+      return { "--replace", replace_lines[1], }
     end)()
 
     local flags = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 2, -1, false)
