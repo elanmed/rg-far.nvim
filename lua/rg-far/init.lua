@@ -28,6 +28,7 @@ end
 --- @field stderr_bufnr number
 --- @field stderr_winnr number
 --- @field input_bufnr number
+--- @field input_winnr number
 --- @field results_bufnr number
 --- @field results_winnr number
 
@@ -120,7 +121,7 @@ local init_windows_buffers = function()
   vim.wo[results_winnr].concealcursor = "nvic"
 
   vim.api.nvim_win_set_height(stderr_winnr, 1)
-  vim.api.nvim_win_set_height(input_winnr, 8)
+  vim.api.nvim_win_set_height(input_winnr, 3 + 1)
   -- TODO: configuration opt
   vim.api.nvim_win_set_width(results_winnr, math.floor(vim.o.columns * 2 / 3))
 
@@ -151,6 +152,7 @@ local init_windows_buffers = function()
         stderr_bufnr = stderr_bufnr,
         stderr_winnr = stderr_winnr,
         input_bufnr = input_bufnr,
+        input_winnr = input_winnr,
         results_bufnr = results_bufnr,
         results_winnr = results_winnr,
       }
@@ -161,6 +163,7 @@ local init_windows_buffers = function()
     stderr_bufnr = stderr_bufnr,
     stderr_winnr = stderr_winnr,
     input_bufnr = input_bufnr,
+    input_winnr = input_winnr,
     results_bufnr = results_bufnr,
     results_winnr = results_winnr,
   }
@@ -187,6 +190,8 @@ local highlight_input_buf = function(nrs)
   if #lines >= 1 then set_input_buf_extmark { idx_1i = 1, label = "Find", } end
   if #lines >= 2 then set_input_buf_extmark { idx_1i = 2, label = "Replace", } end
   if #lines >= 3 then set_input_buf_extmark { idx_1i = #lines, label = "Flags (one per line)", } end
+
+  vim.api.nvim_win_set_height(nrs.input_winnr, #lines + 3 + 1)
 end
 
 --- @param nrs NrOpts
