@@ -1,2 +1,8 @@
+rg-far-<plug>rgfarreplace	rg-far.txt	/*rg-far-<plug>rgfarreplace*
+rg-far-api	rg-far.txt	/*rg-far-api*
+rg-far-overview	rg-far.txt	/*rg-far-overview*
+rg-far-performance	rg-far.txt	/*rg-far-performance*
+rg-far-plug-remaps	rg-far.txt	/*rg-far-plug-remaps*
 rg-far-rg-far.nvim	rg-far.txt	/*rg-far-rg-far.nvim*
+rg-far-table-of-contents	rg-far.txt	/*rg-far-table-of-contents*
 rg-far.txt	rg-far.txt	/*rg-far.txt*
