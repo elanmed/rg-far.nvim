@@ -268,6 +268,8 @@ local populate_and_highlight_results = function(nrs)
     local rg_cmd = table.concat(args, " ")
 
     system_obj = vim.system(args, {}, function(out)
+      vim.schedule(function() clear_results_buf(nrs) end)
+
       if out.code ~= 0 then
         vim.schedule(function()
           local stderr = vim.iter { rg_cmd, vim.split(out.stderr or "", "\n"), }:flatten():totable()
@@ -276,15 +278,11 @@ local populate_and_highlight_results = function(nrs)
           vim.bo[nrs.stderr_bufnr].modifiable = true
           vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, stderr)
           vim.bo[nrs.stderr_bufnr].modifiable = false
-
-          clear_results_buf(nrs)
         end)
         return
       end
 
-      if not out.stdout then
-        return vim.schedule(function() clear_results_buf(nrs) end)
-      end
+      if not out.stdout then return end
 
       vim.schedule(function()
         vim.bo[nrs.stderr_bufnr].modifiable = true
@@ -298,8 +296,6 @@ local populate_and_highlight_results = function(nrs)
       vim.schedule(function()
         run_batch {
           fn = function()
-            clear_results_buf(nrs)
-
             for idx_1i, line in ipairs(lines) do
               if curr_batch_id ~= global_batch_id then
                 system_obj:kill "sigterm"
