@@ -2,6 +2,8 @@ local M = {}
 
 local ns_id = vim.api.nvim_create_namespace "rg-far"
 local global_batch_id = 0
+local system_obj
+
 
 --- @class RunBatchOpts
 --- @field fn function
@@ -125,6 +127,7 @@ local init_windows_buffers = function()
   vim.api.nvim_create_autocmd("WinClosed", {
     pattern = { tostring(stderr_winnr), tostring(input_winnr), tostring(results_winnr), },
     callback = function()
+      if system_obj then system_obj:kill "sigterm" end
       if vim.api.nvim_win_is_valid(input_winnr) then vim.api.nvim_win_close(input_winnr, true) end
       if vim.api.nvim_win_is_valid(results_winnr) then vim.api.nvim_win_close(results_winnr, true) end
       if vim.api.nvim_win_is_valid(stderr_winnr) then vim.api.nvim_win_close(stderr_winnr, true) end
@@ -313,6 +316,7 @@ local populate_and_highlight_results = function(nrs)
           end,
           on_complete = function()
             vim.schedule(function()
+              if not vim.api.nvim_win_is_valid(nrs.results_winnr) then return end
               vim.wo[nrs.results_winnr].winbar = ("Results (%d)"):format(vim.api.nvim_buf_line_count(nrs.results_bufnr))
               highlight_results_buf(nrs)
             end)
