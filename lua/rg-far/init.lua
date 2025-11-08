@@ -229,13 +229,19 @@ local populate_and_highlight_results = function(nrs)
     vim.fn.timer_stop(timer_id)
   end
 
+  if system_obj then
+    system_obj:kill "sigterm"
+  end
+
   timer_id = vim.fn.timer_start(250, function()
     global_batch_id = global_batch_id + 1
     local curr_batch_id = global_batch_id
 
+    clear_results_buf(nrs)
+
     local find = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 0, 1, false)[1]
     if find == "" then
-      return clear_results_buf(nrs)
+      return
     end
 
     local replace_flag = (function()
@@ -269,8 +275,6 @@ local populate_and_highlight_results = function(nrs)
 
     vim.wo[nrs.results_winnr].winbar = "Results (loading ...)"
     system_obj = vim.system(args, {}, function(out)
-      vim.schedule(function() clear_results_buf(nrs) end)
-
       if out.code ~= 0 then
         vim.schedule(function()
           local stderr = vim.iter { rg_cmd, vim.split(out.stderr or "", "\n"), }:flatten():totable()
@@ -298,10 +302,7 @@ local populate_and_highlight_results = function(nrs)
         run_batch {
           fn = function()
             for idx_1i, line in ipairs(lines) do
-              if curr_batch_id ~= global_batch_id then
-                system_obj:kill "sigterm"
-                return
-              end
+              if curr_batch_id ~= global_batch_id then return end
 
               local idx_0i = idx_1i - 1
               vim.api.nvim_buf_set_lines(nrs.results_bufnr, idx_0i, idx_0i, false, { line, })
@@ -312,9 +313,12 @@ local populate_and_highlight_results = function(nrs)
             end
           end,
           on_complete = function()
+            if curr_batch_id ~= global_batch_id then return end
+
             vim.schedule(function()
               if not vim.api.nvim_win_is_valid(nrs.results_winnr) then return end
               vim.wo[nrs.results_winnr].winbar = ("Results (%d)"):format(vim.api.nvim_buf_line_count(nrs.results_bufnr))
+
               highlight_results_buf(nrs)
             end)
           end,
