@@ -267,6 +267,7 @@ local populate_and_highlight_results = function(nrs)
     -- TODO: shell escape
     local rg_cmd = table.concat(args, " ")
 
+    vim.wo[nrs.results_winnr].winbar = "Results (loading ...)"
     system_obj = vim.system(args, {}, function(out)
       vim.schedule(function() clear_results_buf(nrs) end)
 
