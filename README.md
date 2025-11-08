@@ -2,7 +2,7 @@
 
 A minimal find-and-replace interface powered by ripgrep
 
-![demo](https://elanmed.dev/nvim-plugins/marks.png)
+![demo](https://elanmed.dev/nvim-plugins/rg-far.png)
 
 ### Overview
 
