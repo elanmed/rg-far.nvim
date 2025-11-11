@@ -366,7 +366,7 @@ local populate_and_highlight_results = function(nrs)
 
       vim.schedule(function()
         vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, lines)
-        vim.wo[nrs.results_winnr].winbar = ("Results (%d)"):format(vim.api.nvim_buf_line_count(nrs.results_bufnr))
+        vim.wo[nrs.results_winnr].winbar = ("Results (%d lines)"):format(vim.api.nvim_buf_line_count(nrs.results_bufnr))
       end)
 
       vim.schedule(function() highlight_results_buf(nrs) end)
