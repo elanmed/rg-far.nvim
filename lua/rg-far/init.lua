@@ -1,5 +1,7 @@
 local M = {}
 
+vim.g.rg_far_open = false
+
 --- @generic T
 --- @param val T | nil
 --- @param default_val T
@@ -173,6 +175,7 @@ local init_windows_buffers = function()
       if vim.api.nvim_win_is_valid(input_winnr) then vim.api.nvim_win_close(input_winnr, true) end
       if vim.api.nvim_win_is_valid(results_winnr) then vim.api.nvim_win_close(results_winnr, true) end
       if vim.api.nvim_win_is_valid(stderr_winnr) then vim.api.nvim_win_close(stderr_winnr, true) end
+      vim.g.rg_far_open = false
     end,
   })
 
@@ -346,6 +349,11 @@ local populate_and_highlight_results = function(nrs)
 end
 
 M.open = function()
+  if vim.g.rg_far_open then
+    return vim.notify "[rg-far] Already open"
+  end
+  vim.g.rg_far_open = true
+
   local nrs = init_windows_buffers()
   highlight_input_buf(nrs)
 
