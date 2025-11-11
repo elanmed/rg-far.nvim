@@ -343,10 +343,17 @@ local populate_and_highlight_results = function(nrs)
           vim.bo[nrs.stderr_bufnr].modifiable = true
           vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, stderr)
           vim.bo[nrs.stderr_bufnr].modifiable = false
+
+          vim.wo[nrs.results_winnr].winbar = "Results"
         end)
         return
       end
-      if not out.stdout then return end
+      if not out.stdout then
+        vim.schedule(function()
+          vim.wo[nrs.results_winnr].winbar = "Results"
+        end)
+        return
+      end
 
       vim.schedule(function()
         vim.bo[nrs.stderr_bufnr].modifiable = true
@@ -362,9 +369,7 @@ local populate_and_highlight_results = function(nrs)
         vim.wo[nrs.results_winnr].winbar = ("Results (%d)"):format(vim.api.nvim_buf_line_count(nrs.results_bufnr))
       end)
 
-      vim.schedule(function()
-        highlight_results_buf(nrs)
-      end)
+      vim.schedule(function() highlight_results_buf(nrs) end)
     end)
   end)
 end
