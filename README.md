@@ -47,7 +47,8 @@ vim.api.nvim_set_hl(0, "RgFarLabel", { link = "ModeMsg", })
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "rg-far",
   callback = function()
-    vim.keymap.set("n", "<leader>r", "<Plug>RgFarReplace")
+    vim.keymap.set("n", "<leader>r", "<Plug>RgFarReplace", { buffer = true })
+    vim.keymap.set("n", "<leader>f", "<Plug>RgFarResultsToQfList", { buffer = true, })
   end,
 })
 ```
@@ -58,3 +59,8 @@ vim.api.nvim_create_autocmd("FileType", {
 
 - Writes the text in the results buffer to the corresponding file
 - Confirms before replacing
+
+
+#### `<Plug>RgFarResultsToQfList`
+- Sends the results currently present in the results buffer to the quickfix list
+- Opens the quickfix list

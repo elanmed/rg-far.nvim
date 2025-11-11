@@ -67,6 +67,26 @@ end
 --- @field results_winnr number
 
 --- @param nrs NrOpts
+local results_to_qf_list = function(nrs)
+  local lines = vim.api.nvim_buf_get_lines(nrs.results_bufnr, 0, -1, false)
+  lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
+
+  local qf_list = {}
+  for _, line in ipairs(lines) do
+    local filename, row_1i, text = unpack(vim.split(line, "|"))
+    table.insert(qf_list, {
+      bufnr = 0,
+      text = text,
+      lnum = row_1i,
+      filename = filename,
+    })
+  end
+
+  vim.fn.setqflist(qf_list)
+  vim.cmd.copen()
+end
+
+--- @param nrs NrOpts
 local clear_results_buf = function(nrs)
   vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, {})
   vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
@@ -182,16 +202,17 @@ local init_windows_buffers = function()
   vim.api.nvim_set_current_win(input_winnr)
 
   for _, buffer in ipairs { stderr_bufnr, input_bufnr, results_bufnr, } do
-    vim.keymap.set("n", "<Plug>RgFarReplace", function()
-      replace {
-        stderr_bufnr = stderr_bufnr,
-        stderr_winnr = stderr_winnr,
-        input_bufnr = input_bufnr,
-        input_winnr = input_winnr,
-        results_bufnr = results_bufnr,
-        results_winnr = results_winnr,
-      }
-    end, { buffer = buffer, })
+    --- @type NrOpts
+    local nrs = {
+      stderr_bufnr = stderr_bufnr,
+      stderr_winnr = stderr_winnr,
+      input_bufnr = input_bufnr,
+      input_winnr = input_winnr,
+      results_bufnr = results_bufnr,
+      results_winnr = results_winnr,
+    }
+    vim.keymap.set("n", "<Plug>RgFarReplace", function() replace(nrs) end, { buffer = buffer, })
+    vim.keymap.set("n", "<Plug>RgFarResultsToQfList", function() results_to_qf_list(nrs) end, { buffer = buffer, })
   end
 
   return {

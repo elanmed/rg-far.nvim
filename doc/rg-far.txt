@@ -9,6 +9,7 @@ API ............................................................. |rg-far-api|
 Configuration ......................................... |rg-far-configuration|
 Plug remaps ............................................. |rg-far-plug-remaps|
 `<Plug>RgFarReplace` ............................. |rg-far-<plug>rgfarreplace|
+`<Plug>RgFarResultsToQfList` ............. |rg-far-<plug>rgfarresultstoqflist|
 
 ==============================================================================
 `RG-FAR.NVIM`                                             *rg-far-rg-far.nvim*
@@ -72,7 +73,8 @@ CONFIGURATION                                           *rg-far-configuration*
     vim.api.nvim_create_autocmd("FileType", {
       pattern = "rg-far",
       callback = function()
-        vim.keymap.set("n", "<leader>r", "<Plug>RgFarReplace")
+        vim.keymap.set("n", "<leader>r", "<Plug>RgFarReplace", { buffer = true })
+        vim.keymap.set("n", "<leader>f", "<Plug>RgFarResultsToQfList", { buffer = true, })
       end,
     })
 <
@@ -86,5 +88,12 @@ PLUG REMAPS                                               *rg-far-plug-remaps*
 
 - Writes the text in the results buffer to the corresponding file
 - Confirms before replacing
+
+                                                                              
+`<PLUG>RGFARRESULTSTOQFLIST`               *rg-far-<plug>rgfarresultstoqflist*
+
+- Sends the results currently present in the results buffer to the quickfix
+  list
+- Opens the quickfix list
 
 vim:tw=78:ts=8:ft=help:norl:
