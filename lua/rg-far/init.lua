@@ -335,6 +335,13 @@ local populate_and_highlight_results = function(nrs)
     system_obj = vim.system(args, {}, function(out)
       if curr_batch_id ~= global_batch_id then return end
 
+      --- @param results string[]
+      local set_results = function(results)
+        vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, results)
+        vim.wo[nrs.results_winnr].winbar = ("Results (%d lines)"):format(#results)
+        highlight_results_buf(nrs)
+      end
+
       if out.code ~= 0 then
         vim.schedule(function()
           local stderr = vim.iter { rg_cmd, vim.split(out.stderr or "", "\n"), }:flatten():totable()
@@ -344,17 +351,13 @@ local populate_and_highlight_results = function(nrs)
           vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, stderr)
           vim.bo[nrs.stderr_bufnr].modifiable = false
 
-          vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, {})
-          vim.wo[nrs.results_winnr].winbar = "Results (0 lines)"
+          set_results {}
         end)
         return
       end
 
       if not out.stdout then
-        vim.schedule(function()
-          vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, {})
-          vim.wo[nrs.results_winnr].winbar = "Results (0 lines)"
-        end)
+        vim.schedule(function() set_results {} end)
         return
       end
 
@@ -367,12 +370,7 @@ local populate_and_highlight_results = function(nrs)
       local lines = vim.split(out.stdout, "\n")
       lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
 
-      vim.schedule(function()
-        vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, lines)
-        vim.wo[nrs.results_winnr].winbar = ("Results (%d lines)"):format(vim.api.nvim_buf_line_count(nrs.results_bufnr))
-      end)
-
-      vim.schedule(function() highlight_results_buf(nrs) end)
+      vim.schedule(function() set_results(lines) end)
     end)
   end)
 end
