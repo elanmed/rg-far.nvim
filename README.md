@@ -48,7 +48,7 @@ vim.api.nvim_create_autocmd("FileType", {
   pattern = "rg-far",
   callback = function()
     vim.keymap.set("n", "<leader>r", "<Plug>RgFarReplace", { buffer = true })
-    vim.keymap.set("n", "<leader>f", "<Plug>RgFarResultsToQfList", { buffer = true, })
+    vim.keymap.set("n", "<leader>f", "<Plug>RgFarResultsToQfList<Plug>RgFarClose", { buffer = true, })
   end,
 })
 ```
