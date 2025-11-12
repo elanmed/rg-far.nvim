@@ -217,7 +217,7 @@ local init_windows_buffers = function()
       if vim.api.nvim_win_is_valid(vim.g.rg_far_input_winnr) then
         vim.api.nvim_win_close(vim.g.rg_far_input_winnr, true)
       end
-    end, { buffer = buffer, })
+    end)
   end
 
   return {
