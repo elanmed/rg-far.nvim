@@ -64,3 +64,7 @@ vim.api.nvim_create_autocmd("FileType", {
 #### `<Plug>RgFarResultsToQfList`
 - Sends the results currently present in the results buffer to the quickfix list
 - Opens the quickfix list
+
+
+#### `<Plug>RgFarClose`
+- Close all `rg-far` windows

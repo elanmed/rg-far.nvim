@@ -1,4 +1,4 @@
-*rg-far.txt*                                     Last change: 2025 November 08
+*rg-far.txt*                                     Last change: 2025 November 11
 
 ==============================================================================
 Table of Contents                                   *rg-far-table-of-contents*
@@ -10,6 +10,7 @@ Configuration ......................................... |rg-far-configuration|
 Plug remaps ............................................. |rg-far-plug-remaps|
 `<Plug>RgFarReplace` ............................. |rg-far-<plug>rgfarreplace|
 `<Plug>RgFarResultsToQfList` ............. |rg-far-<plug>rgfarresultstoqflist|
+`<Plug>RgFarClose` ................................. |rg-far-<plug>rgfarclose|
 
 ==============================================================================
 `RG-FAR.NVIM`                                             *rg-far-rg-far.nvim*
@@ -95,5 +96,10 @@ PLUG REMAPS                                               *rg-far-plug-remaps*
 - Sends the results currently present in the results buffer to the quickfix
   list
 - Opens the quickfix list
+
+                                                                              
+`<PLUG>RGFARCLOSE`                                   *rg-far-<plug>rgfarclose*
+
+- Close all `rg-far` windows
 
 vim:tw=78:ts=8:ft=help:norl:
