@@ -368,24 +368,23 @@ local populate_and_highlight_results = function(nrs)
     system_obj = vim.system(args, {}, function(out)
       if curr_batch_id ~= global_batch_id then return end
 
+
       --- @param results string[]
       local set_results = function(results)
+        local stderr = vim.iter { rg_cmd, vim.split(out.stderr or "", "\n"), }:flatten():totable()
+        vim.api.nvim_win_set_height(nrs.stderr_winnr, #stderr + 1)
+
+        vim.bo[nrs.stderr_bufnr].modifiable = true
+        vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, stderr)
+        vim.bo[nrs.stderr_bufnr].modifiable = false
+
         vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, results)
         vim.wo[nrs.results_winnr].winbar = ("Results (%d lines)"):format(#results)
         highlight_results_buf(nrs)
       end
 
       if out.code ~= 0 then
-        vim.schedule(function()
-          local stderr = vim.iter { rg_cmd, vim.split(out.stderr or "", "\n"), }:flatten():totable()
-          vim.api.nvim_win_set_height(nrs.stderr_winnr, #stderr + 1)
-
-          vim.bo[nrs.stderr_bufnr].modifiable = true
-          vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, stderr)
-          vim.bo[nrs.stderr_bufnr].modifiable = false
-
-          set_results {}
-        end)
+        vim.schedule(function() set_results {} end)
         return
       end
 
