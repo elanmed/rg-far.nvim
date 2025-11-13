@@ -1,6 +1,9 @@
 local M = {}
 
 vim.g.rg_far_input_winnr = -1
+vim.g.rg_far_stderr_bufnr = -1
+vim.g.rg_far_input_bufnr = -1
+vim.g.rg_far_results_bufnr = -1
 
 --- @generic T
 --- @param val T | nil
@@ -147,7 +150,15 @@ end
 local init_windows_buffers = function()
   local gopts = get_gopts()
 
-  local stderr_bufnr = vim.api.nvim_create_buf(false, true)
+  local stderr_bufnr = (function()
+    if vim.api.nvim_buf_is_valid(vim.g.rg_far_stderr_bufnr) then
+      return vim.g.rg_far_stderr_bufnr
+    end
+
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.g.rg_far_stderr_bufnr = bufnr
+    return bufnr
+  end)()
   local stderr_winnr = vim.api.nvim_open_win(stderr_bufnr, true, {
     split = "right",
     win = 0,
@@ -156,16 +167,33 @@ local init_windows_buffers = function()
   vim.wo[stderr_winnr].winbar = "Rg command and stderr"
   vim.wo[stderr_winnr].statusline = " "
 
-  local input_bufnr = vim.api.nvim_create_buf(false, true)
+  local input_bufnr = (function()
+    if vim.api.nvim_buf_is_valid(vim.g.rg_far_input_bufnr) then
+      return vim.g.rg_far_input_bufnr
+    end
+
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "", "", "", })
+    vim.g.rg_far_input_bufnr = bufnr
+
+    return bufnr
+  end)()
   local input_winnr = vim.api.nvim_open_win(input_bufnr, true, {
     split = "below",
     win = stderr_winnr,
   })
+  vim.g.rg_far_input_winnr = input_winnr
   vim.wo[input_winnr].winbar = "Input"
   vim.wo[input_winnr].statusline = " "
-  vim.api.nvim_buf_set_lines(input_bufnr, 0, -1, false, { "", "", "", })
 
-  local results_bufnr = vim.api.nvim_create_buf(false, true)
+  local results_bufnr = (function()
+    if vim.api.nvim_buf_is_valid(vim.g.rg_far_results_bufnr) then
+      return vim.g.rg_far_results_bufnr
+    end
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.g.rg_far_results_bufnr = bufnr
+    return bufnr
+  end)()
   local results_winnr = vim.api.nvim_open_win(results_bufnr, true, {
     split = "below",
     win = input_winnr,
@@ -192,9 +220,9 @@ local init_windows_buffers = function()
     pattern = { tostring(stderr_winnr), tostring(input_winnr), tostring(results_winnr), },
     callback = function()
       if system_obj then system_obj:kill "sigterm" end
-      if vim.api.nvim_win_is_valid(input_winnr) then vim.api.nvim_win_close(input_winnr, true) end
-      if vim.api.nvim_win_is_valid(results_winnr) then vim.api.nvim_win_close(results_winnr, true) end
-      if vim.api.nvim_win_is_valid(stderr_winnr) then vim.api.nvim_win_close(stderr_winnr, true) end
+      if vim.api.nvim_win_is_valid(input_winnr) then vim.api.nvim_win_close(input_winnr, false) end
+      if vim.api.nvim_win_is_valid(results_winnr) then vim.api.nvim_win_close(results_winnr, false) end
+      if vim.api.nvim_win_is_valid(stderr_winnr) then vim.api.nvim_win_close(stderr_winnr, false) end
       vim.g.rg_far_input_winnr = -1
     end,
   })
@@ -387,7 +415,6 @@ M.open = function()
   end
 
   local nrs = init_windows_buffers()
-  vim.g.rg_far_input_winnr = nrs.input_winnr
   highlight_input_buf(nrs)
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
