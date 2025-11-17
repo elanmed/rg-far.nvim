@@ -1,5 +1,7 @@
 local M = {}
 
+local augroup = vim.api.nvim_create_augroup("RgFar", { clear = true, })
+
 vim.g.rg_far_input_winnr = -1
 vim.g.rg_far_input_bufnr = -1
 vim.g.rg_far_stderr_bufnr = -1
@@ -218,6 +220,7 @@ local init_windows_buffers = function()
   end)
 
   vim.api.nvim_create_autocmd("WinClosed", {
+    group = augroup,
     pattern = { tostring(stderr_winnr), tostring(input_winnr), tostring(results_winnr), },
     callback = function()
       if system_obj then system_obj:kill "sigterm" end
@@ -420,11 +423,14 @@ M.open = function()
     return vim.notify "[rg-far] Already open"
   end
 
+  vim.api.nvim_clear_autocmds { group = augroup, }
+
   local nrs = init_windows_buffers()
   init_plug_remaps(nrs)
   highlight_input_buf(nrs)
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
+    group = augroup,
     buffer = nrs.input_bufnr,
     callback = function()
       highlight_input_buf(nrs)
@@ -433,6 +439,7 @@ M.open = function()
   })
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
+    group = augroup,
     buffer = nrs.results_bufnr,
     callback = function() highlight_results_buf(nrs) end,
   })
