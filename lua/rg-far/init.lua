@@ -379,7 +379,7 @@ local populate_and_highlight_results = function(nrs)
       --- @param results string[]
       local set_results = function(results)
         vim.wo[nrs.input_winnr].winbar = pretty_rg_cmd
-        local stderr = vim.split(out.stderr or "", "\n")
+        local stderr = vim.split(out.stderr or "", "\n", { trimempty = true, })
         vim.api.nvim_win_set_height(nrs.stderr_winnr, #stderr + 1)
 
         vim.bo[nrs.stderr_bufnr].modifiable = true
@@ -408,7 +408,7 @@ local populate_and_highlight_results = function(nrs)
         vim.bo[nrs.stderr_bufnr].modifiable = false
       end)
 
-      local lines = vim.split(out.stdout, "\n")
+      local lines = vim.split(out.stdout, "\n", { trimempty = true, })
       lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
 
       vim.schedule(function() set_results(lines) end)
