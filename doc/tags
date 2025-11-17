@@ -1,4 +1,5 @@
 rg-far-<plug>rgfarclose	rg-far.txt	/*rg-far-<plug>rgfarclose*
+rg-far-<plug>rgfaropenresult	rg-far.txt	/*rg-far-<plug>rgfaropenresult*
 rg-far-<plug>rgfarreplace	rg-far.txt	/*rg-far-<plug>rgfarreplace*
 rg-far-<plug>rgfarresultstoqflist	rg-far.txt	/*rg-far-<plug>rgfarresultstoqflist*
 rg-far-api	rg-far.txt	/*rg-far-api*

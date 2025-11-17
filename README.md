@@ -49,6 +49,7 @@ vim.api.nvim_create_autocmd("FileType", {
   callback = function()
     vim.keymap.set("n", "<leader>r", "<Plug>RgFarReplace", { buffer = true })
     vim.keymap.set("n", "<leader>f", "<Plug>RgFarResultsToQfList<Plug>RgFarClose", { buffer = true, })
+    vim.keymap.set("n", "o", "<Plug>RgFarOpenResult", { buffer = true, })
   end,
 })
 ```
@@ -68,3 +69,7 @@ vim.api.nvim_create_autocmd("FileType", {
 
 #### `<Plug>RgFarClose`
 - Close all `rg-far` windows
+
+
+### `<Plug>RgFarOpenResult`
+- Open the result in the primary window

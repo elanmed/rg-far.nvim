@@ -11,6 +11,7 @@ Plug remaps ............................................. |rg-far-plug-remaps|
 `<Plug>RgFarReplace` ............................. |rg-far-<plug>rgfarreplace|
 `<Plug>RgFarResultsToQfList` ............. |rg-far-<plug>rgfarresultstoqflist|
 `<Plug>RgFarClose` ................................. |rg-far-<plug>rgfarclose|
+`<Plug>RgFarOpenResult` ....................... |rg-far-<plug>rgfaropenresult|
 
 ==============================================================================
 `RG-FAR.NVIM`                                             *rg-far-rg-far.nvim*
@@ -76,6 +77,7 @@ CONFIGURATION                                           *rg-far-configuration*
       callback = function()
         vim.keymap.set("n", "<leader>r", "<Plug>RgFarReplace", { buffer = true })
         vim.keymap.set("n", "<leader>f", "<Plug>RgFarResultsToQfList<Plug>RgFarClose", { buffer = true, })
+        vim.keymap.set("n", "o", "<Plug>RgFarOpenResult", { buffer = true, })
       end,
     })
 <
@@ -101,5 +103,10 @@ PLUG REMAPS                                               *rg-far-plug-remaps*
 `<PLUG>RGFARCLOSE`                                   *rg-far-<plug>rgfarclose*
 
 - Close all `rg-far` windows
+
+                                                                              
+`<PLUG>RGFAROPENRESULT`                         *rg-far-<plug>rgfaropenresult*
+
+- Open the result in the primary window
 
 vim:tw=78:ts=8:ft=help:norl:
