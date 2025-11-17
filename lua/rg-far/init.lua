@@ -1,9 +1,10 @@
 local M = {}
 
 vim.g.rg_far_input_winnr = -1
-vim.g.rg_far_stderr_bufnr = -1
 vim.g.rg_far_input_bufnr = -1
+vim.g.rg_far_stderr_bufnr = -1
 vim.g.rg_far_results_bufnr = -1
+vim.g.rg_far_curr_winnr = -1
 
 --- @generic T
 --- @param val T | nil
@@ -164,7 +165,7 @@ local init_windows_buffers = function()
     win = 0,
   })
   vim.bo[stderr_bufnr].modifiable = false
-  vim.wo[stderr_winnr].winbar = "Rg command and stderr"
+  vim.wo[stderr_winnr].winbar = "Stderr"
   vim.wo[stderr_winnr].statusline = " "
 
   local input_bufnr = (function()
@@ -223,30 +224,10 @@ local init_windows_buffers = function()
       if vim.api.nvim_win_is_valid(input_winnr) then vim.api.nvim_win_close(input_winnr, false) end
       if vim.api.nvim_win_is_valid(results_winnr) then vim.api.nvim_win_close(results_winnr, false) end
       if vim.api.nvim_win_is_valid(stderr_winnr) then vim.api.nvim_win_close(stderr_winnr, false) end
-      vim.g.rg_far_input_winnr = -1
     end,
   })
 
   vim.api.nvim_set_current_win(input_winnr)
-
-  for _, buffer in ipairs { stderr_bufnr, input_bufnr, results_bufnr, } do
-    --- @type NrOpts
-    local nrs = {
-      stderr_bufnr = stderr_bufnr,
-      stderr_winnr = stderr_winnr,
-      input_bufnr = input_bufnr,
-      input_winnr = input_winnr,
-      results_bufnr = results_bufnr,
-      results_winnr = results_winnr,
-    }
-    vim.keymap.set("n", "<Plug>RgFarReplace", function() replace(nrs) end, { buffer = buffer, })
-    vim.keymap.set("n", "<Plug>RgFarResultsToQfList", function() results_to_qf_list(nrs) end, { buffer = buffer, })
-    vim.keymap.set("n", "<Plug>RgFarClose", function()
-      if vim.api.nvim_win_is_valid(vim.g.rg_far_input_winnr) then
-        vim.api.nvim_win_close(vim.g.rg_far_input_winnr, true)
-      end
-    end)
-  end
 
   return {
     stderr_bufnr = stderr_bufnr,
@@ -256,6 +237,29 @@ local init_windows_buffers = function()
     results_bufnr = results_bufnr,
     results_winnr = results_winnr,
   }
+end
+
+--- @param nrs NrOpts
+local init_plug_remaps = function(nrs)
+  for _, buffer in ipairs { nrs.stderr_bufnr, nrs.input_bufnr, nrs.results_bufnr, } do
+    vim.keymap.set("n", "<Plug>RgFarReplace", function() replace(nrs) end, { buffer = buffer, })
+    vim.keymap.set("n", "<Plug>RgFarResultsToQfList", function() results_to_qf_list(nrs) end, { buffer = buffer, })
+  end
+
+  vim.keymap.set("n", "<Plug>RgFarOpenResult", function()
+    local line = vim.api.nvim_get_current_line()
+    local filename, row_1i = unpack(vim.split(line, "|"))
+    vim.api.nvim_win_call(vim.g.rg_far_curr_winnr, function()
+      vim.cmd.edit(filename)
+    end)
+    vim.api.nvim_win_set_cursor(vim.g.rg_far_curr_winnr, { tonumber(row_1i), 0, })
+  end, { buffer = nrs.results_bufnr, })
+
+  vim.keymap.set("n", "<Plug>RgFarClose", function()
+    if vim.api.nvim_win_is_valid(vim.g.rg_far_input_winnr) then
+      vim.api.nvim_win_close(vim.g.rg_far_input_winnr, true)
+    end
+  end)
 end
 
 --- @param nrs NrOpts
@@ -361,17 +365,18 @@ local populate_and_highlight_results = function(nrs)
         :flatten()
         :totable()
 
-    -- TODO: shell escape
-    local rg_cmd = table.concat(args, " ")
+    local escaped_flags = vim.tbl_map(function(flag) return vim.fn.shellescape(flag) end,
+      vim.iter(flags):flatten():totable())
+    local pretty_rg_cmd = ("rg ... %s -- %s"):format(table.concat(escaped_flags, ""), vim.fn.shellescape(find))
 
     vim.wo[nrs.results_winnr].winbar = "Results (loading ...)"
     system_obj = vim.system(args, {}, function(out)
       if curr_batch_id ~= global_batch_id then return end
 
-
       --- @param results string[]
       local set_results = function(results)
-        local stderr = vim.iter { rg_cmd, vim.split(out.stderr or "", "\n"), }:flatten():totable()
+        vim.wo[nrs.input_winnr].winbar = pretty_rg_cmd
+        local stderr = vim.split(out.stderr or "", "\n")
         vim.api.nvim_win_set_height(nrs.stderr_winnr, #stderr + 1)
 
         vim.bo[nrs.stderr_bufnr].modifiable = true
@@ -381,6 +386,7 @@ local populate_and_highlight_results = function(nrs)
         vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, results)
         vim.wo[nrs.results_winnr].winbar = ("Results (%d lines)"):format(#results)
         highlight_results_buf(nrs)
+        highlight_input_buf(nrs)
       end
 
       if out.code ~= 0 then
@@ -408,12 +414,14 @@ local populate_and_highlight_results = function(nrs)
 end
 
 M.open = function()
+  vim.g.rg_far_curr_winnr = vim.api.nvim_get_current_win()
   if vim.api.nvim_win_is_valid(vim.g.rg_far_input_winnr) then
     vim.api.nvim_set_current_win(vim.g.rg_far_input_winnr)
     return vim.notify "[rg-far] Already open"
   end
 
   local nrs = init_windows_buffers()
+  init_plug_remaps(nrs)
   highlight_input_buf(nrs)
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
