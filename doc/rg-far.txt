@@ -1,4 +1,4 @@
-*rg-far.txt*                                     Last change: 2025 November 11
+*rg-far.txt*                                     Last change: 2025 November 17
 
 ==============================================================================
 Table of Contents                                   *rg-far-table-of-contents*
@@ -12,6 +12,7 @@ Plug remaps ............................................. |rg-far-plug-remaps|
 `<Plug>RgFarResultsToQfList` ............. |rg-far-<plug>rgfarresultstoqflist|
 `<Plug>RgFarClose` ................................. |rg-far-<plug>rgfarclose|
 `<Plug>RgFarOpenResult` ....................... |rg-far-<plug>rgfaropenresult|
+`<Plug>RgFarRefreshResults` ............... |rg-far-<plug>rgfarrefreshresults|
 
 ==============================================================================
 `RG-FAR.NVIM`                                             *rg-far-rg-far.nvim*
@@ -25,7 +26,7 @@ demo <https://elanmed.dev/nvim-plugins/rg-far.png>
                                                                               
 OVERVIEW                                                     *rg-far-overview*
 
-- ~300 LOC, 1 source file, 1 test file (TODO)
+- ~450 LOC, 1 source file, 1 test file (TODO)
 - Simple principle: the results buffer is the source of truth - `rg-far` uses
   the `--with-filename`, `--line-number`, and `replace` ripgrep flags so that
   each line in the results buffer is formatted as: `[filename]|[row]|[result
@@ -77,7 +78,8 @@ CONFIGURATION                                           *rg-far-configuration*
       callback = function()
         vim.keymap.set("n", "<leader>r", "<Plug>RgFarReplace", { buffer = true })
         vim.keymap.set("n", "<leader>f", "<Plug>RgFarResultsToQfList<Plug>RgFarClose", { buffer = true, })
-        vim.keymap.set("n", "o", "<Plug>RgFarOpenResult", { buffer = true, })
+        vim.keymap.set("n", "<leader>o", "<Plug>RgFarOpenResult", { buffer = true, })
+        vim.keymap.set("n", "<leader>e", "<Plug>RgFarRefreshResults", { buffer = true, })
       end,
     })
 <
@@ -108,5 +110,10 @@ PLUG REMAPS                                               *rg-far-plug-remaps*
 `<PLUG>RGFAROPENRESULT`                         *rg-far-<plug>rgfaropenresult*
 
 - Open the result in the primary window
+
+                                                                              
+`<PLUG>RGFARREFRESHRESULTS`                 *rg-far-<plug>rgfarrefreshresults*
+
+- Retrigger the `rg` command and refresh the results
 
 vim:tw=78:ts=8:ft=help:norl:

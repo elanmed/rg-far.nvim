@@ -6,7 +6,7 @@ A minimal find-and-replace interface powered by ripgrep
 
 ### Overview
 
-- ~300 LOC, 1 source file, 1 test file (TODO)
+- ~450 LOC, 1 source file, 1 test file (TODO)
 - Simple principle: the results buffer is the source of truth
   - `rg-far` uses the `--with-filename`, `--line-number`, and `replace` ripgrep flags so that each line in the results buffer is
     formatted as: `[filename]|[row]|[result with the searched text replaced]`. This means that when calling `<PlugRgFarReplace`,
@@ -49,7 +49,8 @@ vim.api.nvim_create_autocmd("FileType", {
   callback = function()
     vim.keymap.set("n", "<leader>r", "<Plug>RgFarReplace", { buffer = true })
     vim.keymap.set("n", "<leader>f", "<Plug>RgFarResultsToQfList<Plug>RgFarClose", { buffer = true, })
-    vim.keymap.set("n", "o", "<Plug>RgFarOpenResult", { buffer = true, })
+    vim.keymap.set("n", "<leader>o", "<Plug>RgFarOpenResult", { buffer = true, })
+    vim.keymap.set("n", "<leader>e", "<Plug>RgFarRefreshResults", { buffer = true, })
   end,
 })
 ```
@@ -61,11 +62,9 @@ vim.api.nvim_create_autocmd("FileType", {
 - Writes the text in the results buffer to the corresponding file
 - Confirms before replacing
 
-
 #### `<Plug>RgFarResultsToQfList`
 - Sends the results currently present in the results buffer to the quickfix list
 - Opens the quickfix list
-
 
 #### `<Plug>RgFarClose`
 - Close all `rg-far` windows
@@ -73,3 +72,6 @@ vim.api.nvim_create_autocmd("FileType", {
 
 ### `<Plug>RgFarOpenResult`
 - Open the result in the primary window
+
+### `<Plug>RgFarRefreshResults`
+- Retrigger the `rg` command and refresh the results
