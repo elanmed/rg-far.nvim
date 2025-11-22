@@ -397,6 +397,10 @@ local init_plug_remaps = function(nrs)
   for _, buffer in ipairs { nrs.stderr_bufnr, nrs.input_bufnr, nrs.results_bufnr, } do
     vim.keymap.set("n", "<Plug>RgFarReplace", function() replace(nrs) end, { buffer = buffer, })
     vim.keymap.set("n", "<Plug>RgFarResultsToQfList", function() results_to_qf_list(nrs) end, { buffer = buffer, })
+    vim.keymap.set("n", "<Plug>RgFarRefreshResults", function()
+      vim.notify "[rg-far] Refreshing results"
+      populate_and_highlight_results(nrs)
+    end, { buffer = buffer, })
   end
 
   vim.keymap.set("n", "<Plug>RgFarOpenResult", function()
@@ -406,10 +410,6 @@ local init_plug_remaps = function(nrs)
       vim.cmd.edit(filename)
     end)
     vim.api.nvim_win_set_cursor(vim.g.rg_far_curr_winnr, { tonumber(row_1i), 0, })
-  end, { buffer = nrs.results_bufnr, })
-
-  vim.keymap.set("n", "<Plug>RgFarRefreshResults", function()
-    populate_and_highlight_results(nrs)
   end, { buffer = nrs.results_bufnr, })
 
   vim.keymap.set("n", "<Plug>RgFarClose", function()
