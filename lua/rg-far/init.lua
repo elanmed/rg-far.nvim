@@ -214,11 +214,6 @@ local init_windows_buffers = function()
   vim.bo[input_bufnr].filetype = "rg-far"
   vim.bo[results_bufnr].filetype = "rg-far"
 
-  vim.api.nvim_buf_call(results_bufnr, function()
-    vim.cmd [[syntax on]]
-    vim.cmd [[syntax match ConcealPipe /^[^|]*|[^|]*|/ conceal]]
-  end)
-
   vim.api.nvim_create_autocmd("WinClosed", {
     group = augroup,
     pattern = { tostring(stderr_winnr), tostring(input_winnr), tostring(results_winnr), },
@@ -304,6 +299,12 @@ local highlight_results_buf = function(nrs)
 
       for idx_1i, line in ipairs(lines) do
         local idx_0i = idx_1i - 1
+
+        vim.api.nvim_buf_set_extmark(nrs.results_bufnr, ns_id, idx_0i, 0, {
+          end_col = line:find("|", (line:find "|") + 1),
+          conceal = "",
+        })
+
         curr_filename = unpack(vim.split(line, "|"))
 
         next_filename = (function()
