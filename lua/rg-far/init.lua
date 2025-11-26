@@ -92,57 +92,6 @@ local results_to_qf_list = function(nrs)
   vim.cmd.copen()
 end
 
---- @param nrs NrOpts
-local replace = function(nrs)
-  local gopts = get_gopts()
-  local lines = vim.api.nvim_buf_get_lines(nrs.results_bufnr, 0, -1, false)
-  lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
-
-  local option = vim.fn.confirm(("[rg-far] Apply %d replacements?"):format(#lines), "&Yes\n&No", 2)
-  if option ~= 1 then
-    vim.notify("[rg-far] Aborting replace", vim.log.levels.INFO)
-    return
-  end
-
-  run_batch {
-    fn = function()
-      vim.bo[nrs.stderr_bufnr].modifiable = false
-      vim.bo[nrs.input_bufnr].modifiable = false
-      vim.bo[nrs.results_bufnr].modifiable = false
-
-      for idx_1i, line in ipairs(lines) do
-        local filename, row_1i, text = unpack(vim.split(line, "|"))
-        row_1i = tonumber(row_1i)
-        local row_0i = row_1i - 1
-
-        local bufnr = vim.fn.bufnr(filename)
-        if bufnr == -1 then
-          local file_lines = vim.fn.readfile(filename)
-          file_lines[row_1i] = text
-          vim.fn.writefile(file_lines, filename)
-        else
-          vim.api.nvim_buf_set_lines(bufnr, row_0i, row_0i + 1, false, { text, })
-          vim.api.nvim_buf_call(bufnr, function() vim.cmd "silent! write!" end)
-        end
-
-        if idx_1i % gopts.batch_size == 0 then
-          coroutine.yield()
-        end
-      end
-    end,
-
-    on_complete = function()
-      vim.notify("[rg-far] Replace complete", vim.log.levels.INFO)
-
-      vim.bo[nrs.stderr_bufnr].modifiable = true
-      vim.bo[nrs.input_bufnr].modifiable = true
-      vim.bo[nrs.results_bufnr].modifiable = true
-
-      populate_and_highlight_results(nrs)
-    end,
-  }
-end
-
 local init_windows_buffers = function()
   local gopts = get_gopts()
 
@@ -390,6 +339,57 @@ local populate_and_highlight_results = function(nrs)
       vim.schedule(function() set_state { rg_cmd = pretty_rg_cmd, stderr = out.stderr, results = lines, } end)
     end)
   end)
+end
+
+--- @param nrs NrOpts
+local replace = function(nrs)
+  local gopts = get_gopts()
+  local lines = vim.api.nvim_buf_get_lines(nrs.results_bufnr, 0, -1, false)
+  lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
+
+  local option = vim.fn.confirm(("[rg-far] Apply %d replacements?"):format(#lines), "&Yes\n&No", 2)
+  if option ~= 1 then
+    vim.notify("[rg-far] Aborting replace", vim.log.levels.INFO)
+    return
+  end
+
+  run_batch {
+    fn = function()
+      vim.bo[nrs.stderr_bufnr].modifiable = false
+      vim.bo[nrs.input_bufnr].modifiable = false
+      vim.bo[nrs.results_bufnr].modifiable = false
+
+      for idx_1i, line in ipairs(lines) do
+        local filename, row_1i, text = unpack(vim.split(line, "|"))
+        row_1i = tonumber(row_1i)
+        local row_0i = row_1i - 1
+
+        local bufnr = vim.fn.bufnr(filename)
+        if bufnr == -1 then
+          local file_lines = vim.fn.readfile(filename)
+          file_lines[row_1i] = text
+          vim.fn.writefile(file_lines, filename)
+        else
+          vim.api.nvim_buf_set_lines(bufnr, row_0i, row_0i + 1, false, { text, })
+          vim.api.nvim_buf_call(bufnr, function() vim.cmd "silent! write!" end)
+        end
+
+        if idx_1i % gopts.batch_size == 0 then
+          coroutine.yield()
+        end
+      end
+    end,
+
+    on_complete = function()
+      vim.notify("[rg-far] Replace complete", vim.log.levels.INFO)
+
+      vim.bo[nrs.stderr_bufnr].modifiable = true
+      vim.bo[nrs.input_bufnr].modifiable = true
+      vim.bo[nrs.results_bufnr].modifiable = true
+
+      populate_and_highlight_results(nrs)
+    end,
+  }
 end
 
 --- @param nrs NrOpts
