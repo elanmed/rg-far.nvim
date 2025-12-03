@@ -63,15 +63,18 @@ vim.api.nvim_create_autocmd("FileType", {
 - Confirms before replacing
 
 #### `<Plug>RgFarResultsToQfList`
+
 - Sends the results currently present in the results buffer to the quickfix list
 - Opens the quickfix list
 
 #### `<Plug>RgFarClose`
+
 - Close all `rg-far` windows
 
+#### `<Plug>RgFarOpenResult`
 
-### `<Plug>RgFarOpenResult`
 - Open the result in the primary window
 
-### `<Plug>RgFarRefreshResults`
+#### `<Plug>RgFarRefreshResults`
+
 - Retrigger the `rg` command and refresh the results
