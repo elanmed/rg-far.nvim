@@ -1,4 +1,4 @@
-*rg-far.txt*                                     Last change: 2025 November 22
+*rg-far.txt*                                     Last change: 2025 December 02
 
 ==============================================================================
 Table of Contents                                   *rg-far-table-of-contents*
