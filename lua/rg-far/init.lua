@@ -60,7 +60,7 @@ local await_batch = function(opts)
 
   step()
   if coroutine.status(opts.batch_co) == "suspended" then
-    coroutine.yield(coroutine.running())
+    coroutine.yield()
   end
 end
 
@@ -386,8 +386,6 @@ replace = function(nrs)
   await_batch {
     batch_co = batch_co,
   }
-
-  vim.notify("[rg-far] Replace complete", vim.log.levels.INFO)
 
   vim.bo[nrs.stderr_bufnr].modifiable = true
   vim.bo[nrs.input_bufnr].modifiable = true
