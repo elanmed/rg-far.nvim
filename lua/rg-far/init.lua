@@ -40,29 +40,73 @@ local get_gopts = function()
   return opts
 end
 
-local ns_id = vim.api.nvim_create_namespace "rg-far"
-local global_batch_id = 0
-local system_obj
+local Batch = {}
+Batch.__index = Batch
 
---- @class RunBatchOpts
---- @field batch_co thread
+--- @generic IterState, IterVar
+--- @param iter fun(): fun(state: IterState, var: IterVar):IterVar, IterState, IterVar
+function Batch:new(iter)
+  local state = {
+    _iter = iter,
+  }
 
---- @param opts RunBatchOpts
-local await_batch = function(opts)
-  local function step()
-    coroutine.resume(opts.batch_co)
-    if coroutine.status(opts.batch_co) == "suspended" then
+  return setmetatable(state, Batch)
+end
+
+--- @param cb fun(val1: any, val2: any):nil
+--- @param on_complete? fun():nil
+function Batch:each(cb, on_complete)
+  local batch_size = get_gopts().batch_size
+  local batch_co = coroutine.create(function()
+    local idx = 1
+    for val1, val2 in self._iter() do
+      cb(val1, val2)
+      if idx % batch_size == 0 then
+        coroutine.yield()
+      end
+      idx = idx + 1
+    end
+  end)
+
+  local step
+  step = function()
+    coroutine.resume(batch_co)
+    if coroutine.status(batch_co) == "suspended" then
       vim.schedule(step)
-    else
-      coroutine.resume(coroutine.running())
+    elseif coroutine.status(batch_co) == "dead" then
+      if on_complete then on_complete() end
     end
   end
-
   step()
-  if coroutine.status(opts.batch_co) == "suspended" then
+end
+
+--- @param promise fun(resolve: fun():nil):nil
+local await = function(promise)
+  local thread = coroutine.running()
+  assert(thread ~= nil, "`await` can only be called in a coroutine")
+  local resumed = false
+  promise(function()
+    if coroutine.status(thread) == "suspended" then
+      coroutine.resume(thread)
+      resumed = true
+    end
+  end)
+  if resumed then
     coroutine.yield()
   end
 end
+
+--- @param fn fun():nil
+local async = function(fn)
+  return function(...)
+    local ok, err = coroutine.resume(coroutine.create(fn), ...)
+    if not ok then error(err) end
+  end
+end
+
+local ns_id = vim.api.nvim_create_namespace "rg-far"
+local global_batch_id = 0
+local system_obj
 
 --- @class NrOpts
 --- @field stderr_bufnr number
@@ -207,48 +251,41 @@ end
 local highlight_results_buf
 --- @param nrs NrOpts
 highlight_results_buf = function(nrs)
-  local gopts = get_gopts()
-  local batch_co = coroutine.create(function()
-    vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
+  vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
 
-    local next_filename = nil
-    local curr_filename = nil
-    local lines = vim.api.nvim_buf_get_lines(nrs.results_bufnr, 0, -1, false)
-    lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
+  local next_filename = nil
+  local curr_filename = nil
+  local lines = vim.api.nvim_buf_get_lines(nrs.results_bufnr, 0, -1, false)
+  lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
 
-    for idx_1i, line in ipairs(lines) do
-      local idx_0i = idx_1i - 1
+  --- @param idx_1i number
+  --- @param line string
+  local highlight_result = function(idx_1i, line)
+    local idx_0i = idx_1i - 1
 
+    vim.api.nvim_buf_set_extmark(nrs.results_bufnr, ns_id, idx_0i, 0, {
+      end_col = line:find("|", (line:find "|") + 1),
+      conceal = "",
+    })
+
+    curr_filename = unpack(vim.split(line, "|"))
+
+    next_filename = (function()
+      if lines[idx_1i + 1] == nil then return nil end
+      return unpack(vim.split(lines[idx_1i + 1], "|"))
+    end)()
+
+    if curr_filename ~= next_filename then
       vim.api.nvim_buf_set_extmark(nrs.results_bufnr, ns_id, idx_0i, 0, {
-        end_col = line:find("|", (line:find "|") + 1),
-        conceal = "",
+        virt_lines = {
+          { { curr_filename, "ModeMsg", }, },
+          { { "", "", }, },
+        },
       })
-
-      curr_filename = unpack(vim.split(line, "|"))
-
-      next_filename = (function()
-        if lines[idx_1i + 1] == nil then return nil end
-        return unpack(vim.split(lines[idx_1i + 1], "|"))
-      end)()
-
-      if curr_filename ~= next_filename then
-        vim.api.nvim_buf_set_extmark(nrs.results_bufnr, ns_id, idx_0i, 0, {
-          virt_lines = {
-            { { curr_filename, "ModeMsg", }, },
-            { { "", "", }, },
-          },
-        })
-      end
-
-      if idx_1i % gopts.batch_size == 0 then
-        coroutine.yield()
-      end
     end
-  end)
+  end
 
-  await_batch {
-    batch_co = batch_co,
-  }
+  Batch:new(function() return ipairs(lines) end):each(highlight_result)
 end
 
 local timer_id = nil
@@ -348,7 +385,6 @@ end
 local replace
 --- @param nrs NrOpts
 replace = function(nrs)
-  local gopts = get_gopts()
   local lines = vim.api.nvim_buf_get_lines(nrs.results_bufnr, 0, -1, false)
   lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
 
@@ -357,35 +393,29 @@ replace = function(nrs)
     return
   end
 
-  local batch_co = coroutine.create(function()
-    vim.bo[nrs.stderr_bufnr].modifiable = false
-    vim.bo[nrs.input_bufnr].modifiable = false
-    vim.bo[nrs.results_bufnr].modifiable = false
+  vim.bo[nrs.stderr_bufnr].modifiable = false
+  vim.bo[nrs.input_bufnr].modifiable = false
+  vim.bo[nrs.results_bufnr].modifiable = false
 
-    for idx_1i, line in ipairs(lines) do
-      local filename, row_1i, text = unpack(vim.split(line, "|"))
-      row_1i = tonumber(row_1i)
-      local row_0i = row_1i - 1
+  local replace_result = function(_, line)
+    local filename, row_1i, text = unpack(vim.split(line, "|"))
+    row_1i = tonumber(row_1i)
+    local row_0i = row_1i - 1
 
-      local bufnr = vim.fn.bufnr(filename)
-      if bufnr == -1 then
-        local file_lines = vim.fn.readfile(filename)
-        file_lines[row_1i] = text
-        vim.fn.writefile(file_lines, filename)
-      else
-        vim.api.nvim_buf_set_lines(bufnr, row_0i, row_0i + 1, false, { text, })
-        vim.api.nvim_buf_call(bufnr, function() vim.cmd "silent! write!" end)
-      end
-
-      if idx_1i % gopts.batch_size == 0 then
-        coroutine.yield()
-      end
+    local bufnr = vim.fn.bufnr(filename)
+    if bufnr == -1 then
+      local file_lines = vim.fn.readfile(filename)
+      file_lines[row_1i] = text
+      vim.fn.writefile(file_lines, filename)
+    else
+      vim.api.nvim_buf_set_lines(bufnr, row_0i, row_0i + 1, false, { text, })
+      vim.api.nvim_buf_call(bufnr, function() vim.cmd "silent! write!" end)
     end
-  end)
+  end
 
-  await_batch {
-    batch_co = batch_co,
-  }
+  await(function(resolve)
+    Batch:new(function() return ipairs(lines) end):each(replace_result, resolve)
+  end)
 
   vim.bo[nrs.stderr_bufnr].modifiable = true
   vim.bo[nrs.input_bufnr].modifiable = true
@@ -398,7 +428,7 @@ end
 local init_plug_remaps = function(nrs)
   for _, buffer in ipairs { nrs.stderr_bufnr, nrs.input_bufnr, nrs.results_bufnr, } do
     vim.keymap.set("n", "<Plug>RgFarReplace", function()
-      coroutine.resume(coroutine.create(replace), nrs)
+      async(replace)(nrs)
     end, { buffer = buffer, })
     vim.keymap.set("n", "<Plug>RgFarResultsToQfList", function() results_to_qf_list(nrs) end, { buffer = buffer, })
     vim.keymap.set("n", "<Plug>RgFarRefreshResults", function()
