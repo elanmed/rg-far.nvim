@@ -7,16 +7,25 @@ vim.g.rg_far_input_bufnr = -1
 vim.g.rg_far_stderr_bufnr = -1
 vim.g.rg_far_results_bufnr = -1
 vim.g.rg_far_curr_winnr = -1
+vim.g.rg_far_loading_results = false
 
 --- @generic T
 --- @param val T | nil
---- @param default_val T
+--- @param fallback T
 --- @return T
-local default = function(val, default_val)
+local if_nil = function(val, fallback)
   if val == nil then
-    return default_val
+    return fallback
   end
   return val
+end
+
+--- @param level vim.log.levels
+--- @param msg string
+--- @param ... any
+local notify = function(level, msg, ...)
+  msg = "[tree.nvim]: " .. msg
+  vim.notify(msg:format(...), level)
 end
 
 --- @param tbl table
@@ -34,9 +43,9 @@ end
 local get_gopts = function()
   --- @type RgFarOpts
   local opts = {}
-  opts.drawer_width = default(tbl_get(vim.g.rg_far, "drawer_width"), 0.66)
-  opts.debounce = default(tbl_get(vim.g.rg_far, "debounce"), 250)
-  opts.batch_size = default(tbl_get(vim.g.rg_far, "batch_size"), 50)
+  opts.drawer_width = if_nil(tbl_get(vim.g.rg_far, "drawer_width"), 0.66)
+  opts.debounce = if_nil(tbl_get(vim.g.rg_far, "debounce"), 250)
+  opts.batch_size = if_nil(tbl_get(vim.g.rg_far, "batch_size"), 50)
   return opts
 end
 
@@ -309,8 +318,8 @@ local populate_and_highlight_results = function(nrs)
   --- @field stderr? string
   --- @param opts SetStateOpts
   local set_state = function(opts)
-    opts.rg_cmd = default(opts.rg_cmd, "Input")
-    opts.stderr = default(opts.stderr, "")
+    opts.rg_cmd = if_nil(opts.rg_cmd, "Input")
+    opts.stderr = if_nil(opts.stderr, "")
 
     vim.wo[nrs.input_winnr].winbar = opts.rg_cmd
 
@@ -368,7 +377,10 @@ local populate_and_highlight_results = function(nrs)
     local pretty_rg_cmd = ("rg ... %s -- %s"):format(table.concat(escaped_flags, ""), vim.fn.shellescape(find))
 
     vim.wo[nrs.results_winnr].winbar = "Results (loading ...)"
+
+    vim.g.rg_far_loading_results = true
     system_obj = vim.system(args, {}, function(out)
+      vim.g.rg_far_loading_results = false
       if curr_batch_id ~= global_batch_id then return end
 
       if out.code ~= 0 then
@@ -392,6 +404,10 @@ end
 local replace
 --- @param nrs NrOpts
 replace = function(nrs)
+  if vim.g.rg_far_loading_results then
+    return notify(vim.log.levels.INFO, "Results are currently loading, aborting replace")
+  end
+
   local lines = vim.api.nvim_buf_get_lines(nrs.results_bufnr, 0, -1, false)
   lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
 
@@ -439,7 +455,7 @@ local init_plug_remaps = function(nrs)
     end, { buffer = buffer, })
     vim.keymap.set("n", "<Plug>RgFarResultsToQfList", function() results_to_qf_list(nrs) end, { buffer = buffer, })
     vim.keymap.set("n", "<Plug>RgFarRefreshResults", function()
-      vim.notify "[rg-far] Refreshing results"
+      notify(vim.log.levels.INFO, "[rg-far] Refreshing results")
       populate_and_highlight_results(nrs)
     end, { buffer = buffer, })
   end
@@ -464,7 +480,7 @@ M.open = function()
   vim.g.rg_far_curr_winnr = vim.api.nvim_get_current_win()
   if vim.api.nvim_win_is_valid(vim.g.rg_far_input_winnr) then
     vim.api.nvim_set_current_win(vim.g.rg_far_input_winnr)
-    return vim.notify "[rg-far] Already open"
+    return vim.notify(vim.log.levels.INFO, "[rg-far] Already open")
   end
 
   vim.api.nvim_clear_autocmds { group = augroup, }
