@@ -225,9 +225,8 @@ local init_windows_buffers = function()
 end
 
 --- @param nrs NrOpts
-local highlight_input_buf = function(nrs)
+local highlight_and_set_input_buf = function(nrs)
   vim.api.nvim_buf_clear_namespace(nrs.input_bufnr, ns_id, 0, -1)
-  local lines = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 0, -1, false)
 
   --- @class SetInputBufExtmarkOpts
   --- @field idx_1i number
@@ -242,9 +241,17 @@ local highlight_input_buf = function(nrs)
     })
   end
 
-  if #lines >= 1 then set_input_buf_extmark { idx_1i = 1, label = "Find", } end
-  if #lines >= 2 then set_input_buf_extmark { idx_1i = 2, label = "Replace", } end
-  if #lines >= 3 then set_input_buf_extmark { idx_1i = #lines, label = "Flags (one per line)", } end
+  local lines = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 0, -1, false)
+  local buffer_lines = vim.deepcopy(lines)
+  while #buffer_lines < 3 do
+    table.insert(buffer_lines, "")
+  end
+  vim.api.nvim_buf_set_lines(nrs.input_bufnr, 0, -1, false, buffer_lines)
+  lines = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 0, -1, false)
+
+  set_input_buf_extmark { idx_1i = 1, label = "Find", }
+  set_input_buf_extmark { idx_1i = 2, label = "Replace", }
+  set_input_buf_extmark { idx_1i = #lines, label = "Flags (one per line)", }
 
   vim.api.nvim_win_set_height(nrs.input_winnr, #lines + 3 + 1)
 end
@@ -318,7 +325,6 @@ local populate_and_highlight_results = function(nrs)
     vim.wo[nrs.results_winnr].winbar = ("Results (%d lines)"):format(#opts.results)
 
     coroutine.resume(coroutine.create(highlight_results_buf), nrs)
-    highlight_input_buf(nrs)
   end
 
   timer_id = vim.fn.timer_start(gopts.debounce, function()
@@ -465,13 +471,13 @@ M.open = function()
 
   local nrs = init_windows_buffers()
   init_plug_remaps(nrs)
-  highlight_input_buf(nrs)
+  highlight_and_set_input_buf(nrs)
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
     group = augroup,
     buffer = nrs.input_bufnr,
     callback = function()
-      highlight_input_buf(nrs)
+      highlight_and_set_input_buf(nrs)
       populate_and_highlight_results(nrs)
     end,
   })
