@@ -38,55 +38,62 @@ end
 --- @class RgFarOpts
 --- @field drawer_width? number
 --- @field debounce? number
---- @field batch_size? number
 
 local get_gopts = function()
   --- @type RgFarOpts
   local opts = {}
   opts.drawer_width = if_nil(tbl_get(vim.g.rg_far, "drawer_width"), 0.66)
   opts.debounce = if_nil(tbl_get(vim.g.rg_far, "debounce"), 250)
-  opts.batch_size = if_nil(tbl_get(vim.g.rg_far, "batch_size"), 50)
   return opts
 end
 
-local Batch = {}
-Batch.__index = Batch
-
---- @generic State, Var, Ret1, Ret2
---- @param iter fun(): ((fun(State, Var): (Ret1, Ret2)), State?, Var?)
-function Batch:new(iter)
-  local state = {
-    _iter = iter,
-  }
-
-  return setmetatable(state, Batch)
+local function safe_resume(...)
+  local ok, err = coroutine.resume(...)
+  if not ok then
+    error(err)
+  end
 end
 
---- @param cb fun(val1: any, val2: any):nil
+--- @generic InvariantState, ControlVar
+--- @param iterator_factory fun(): ((fun(invariant_state: InvariantState, control_var: ControlVar):ControlVar), InvariantState?, ControlVar?)
+--- @param on_iteration fun(entry: ControlVar):nil
 --- @param on_complete? fun():nil
-function Batch:each(cb, on_complete)
-  local batch_size = get_gopts().batch_size
-  local batch_co = coroutine.create(function()
-    local idx = 1
-    for val1, val2 in self._iter() do
-      cb(val1, val2)
-      if idx % batch_size == 0 then
+local function throttled_iterator(iterator_factory, on_iteration, on_complete)
+  local threshold_ns = 10 * 1000000
+
+  local function create_throttle()
+    local last_yield = vim.uv.hrtime()
+    return function()
+      local now = vim.uv.hrtime()
+      if (now - last_yield) >= threshold_ns then
+        last_yield = now
+        local thread = coroutine.running()
+        vim.schedule(function() safe_resume(thread) end)
         coroutine.yield()
       end
-      idx = idx + 1
-    end
-  end)
-
-  local step
-  step = function()
-    coroutine.resume(batch_co)
-    if coroutine.status(batch_co) == "suspended" then
-      vim.schedule(step)
-    elseif coroutine.status(batch_co) == "dead" then
-      if on_complete then on_complete() end
     end
   end
-  step()
+
+  local function process()
+    local maybe_pause = create_throttle()
+
+    local iter_fn, invariant_state, control_var = iterator_factory()
+    while true do
+      maybe_pause()
+
+      local values = { iter_fn(invariant_state, control_var), }
+      control_var = values[1]
+
+      if control_var == nil then
+        if on_complete then on_complete() end
+        return
+      end
+
+      on_iteration(unpack(values))
+    end
+  end
+
+  safe_resume(coroutine.create(process))
 end
 
 --- @param promise fun(resolve: fun():nil):nil
@@ -106,11 +113,10 @@ local await = function(promise)
   end
 end
 
---- @param fn fun():nil
+--- @param fn fun(...):nil
 local async = function(fn)
   return function(...)
-    local ok, err = coroutine.resume(coroutine.create(fn), ...)
-    if not ok then error(err) end
+    safe_resume(coroutine.create(fn), ...)
   end
 end
 
@@ -265,9 +271,8 @@ local highlight_and_set_input_buf = function(nrs)
   vim.api.nvim_win_set_height(nrs.input_winnr, #lines + 3 + 1)
 end
 
-local highlight_results_buf
 --- @param nrs NrOpts
-highlight_results_buf = function(nrs)
+local highlight_results_buf = function(nrs)
   vim.api.nvim_buf_clear_namespace(nrs.results_bufnr, ns_id, 0, -1)
 
   local next_filename = nil
@@ -302,7 +307,7 @@ highlight_results_buf = function(nrs)
     end
   end
 
-  Batch:new(function() return ipairs(lines) end):each(highlight_result)
+  throttled_iterator(function() return ipairs(lines) end, highlight_result)
 end
 
 local timer_id = nil
@@ -333,7 +338,7 @@ local populate_and_highlight_results = function(nrs)
     vim.api.nvim_buf_set_lines(nrs.results_bufnr, 0, -1, false, opts.results)
     vim.wo[nrs.results_winnr].winbar = ("Results (%d lines)"):format(#opts.results)
 
-    coroutine.resume(coroutine.create(highlight_results_buf), nrs)
+    highlight_results_buf(nrs)
   end
 
   timer_id = vim.fn.timer_start(gopts.debounce, function()
@@ -437,7 +442,10 @@ replace = function(nrs)
   end
 
   await(function(resolve)
-    Batch:new(function() return ipairs(lines) end):each(replace_result, resolve)
+    throttled_iterator(
+      function() return ipairs(lines) end,
+      replace_result, resolve
+    )
   end)
 
   vim.bo[nrs.stderr_bufnr].modifiable = true
@@ -501,7 +509,7 @@ M.open = function()
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
     group = augroup,
     buffer = nrs.results_bufnr,
-    callback = function() coroutine.resume(coroutine.create(highlight_results_buf), nrs) end,
+    callback = function() highlight_results_buf(nrs) end,
   })
 end
 
