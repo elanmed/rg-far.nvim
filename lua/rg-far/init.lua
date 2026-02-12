@@ -2,12 +2,14 @@ local M = {}
 
 local augroup = vim.api.nvim_create_augroup("RgFar", { clear = true, })
 
-vim.g.rg_far_input_winnr = -1
-vim.g.rg_far_input_bufnr = -1
-vim.g.rg_far_stderr_bufnr = -1
-vim.g.rg_far_results_bufnr = -1
-vim.g.rg_far_curr_winnr = -1
-vim.g.rg_far_loading_results = false
+local state = {
+  input_winnr = -1,
+  input_bufnr = -1,
+  stderr_bufnr = -1,
+  results_bufnr = -1,
+  curr_winnr = -1,
+  loading_results = false,
+}
 
 --- @generic T
 --- @param val T | nil
@@ -156,12 +158,12 @@ local init_windows_buffers = function()
   local gopts = get_gopts()
 
   local stderr_bufnr = (function()
-    if vim.api.nvim_buf_is_valid(vim.g.rg_far_stderr_bufnr) then
-      return vim.g.rg_far_stderr_bufnr
+    if vim.api.nvim_buf_is_valid(state.stderr_bufnr) then
+      return state.stderr_bufnr
     end
 
     local bufnr = vim.api.nvim_create_buf(false, true)
-    vim.g.rg_far_stderr_bufnr = bufnr
+    state.stderr_bufnr = bufnr
     return bufnr
   end)()
   local stderr_winnr = vim.api.nvim_open_win(stderr_bufnr, true, {
@@ -173,13 +175,13 @@ local init_windows_buffers = function()
   vim.wo[stderr_winnr].statusline = " "
 
   local input_bufnr = (function()
-    if vim.api.nvim_buf_is_valid(vim.g.rg_far_input_bufnr) then
-      return vim.g.rg_far_input_bufnr
+    if vim.api.nvim_buf_is_valid(state.input_bufnr) then
+      return state.input_bufnr
     end
 
     local bufnr = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "", "", "", })
-    vim.g.rg_far_input_bufnr = bufnr
+    state.input_bufnr = bufnr
 
     return bufnr
   end)()
@@ -187,16 +189,16 @@ local init_windows_buffers = function()
     split = "below",
     win = stderr_winnr,
   })
-  vim.g.rg_far_input_winnr = input_winnr
+  state.input_winnr = input_winnr
   vim.wo[input_winnr].winbar = "Input"
   vim.wo[input_winnr].statusline = " "
 
   local results_bufnr = (function()
-    if vim.api.nvim_buf_is_valid(vim.g.rg_far_results_bufnr) then
-      return vim.g.rg_far_results_bufnr
+    if vim.api.nvim_buf_is_valid(state.results_bufnr) then
+      return state.results_bufnr
     end
     local bufnr = vim.api.nvim_create_buf(false, true)
-    vim.g.rg_far_results_bufnr = bufnr
+    state.results_bufnr = bufnr
     return bufnr
   end)()
   local results_winnr = vim.api.nvim_open_win(results_bufnr, true, {
@@ -383,9 +385,9 @@ local populate_and_highlight_results = function(nrs)
 
     vim.wo[nrs.results_winnr].winbar = "Results (loading ...)"
 
-    vim.g.rg_far_loading_results = true
+    state.loading_results = true
     system_obj = vim.system(args, {}, function(out)
-      vim.g.rg_far_loading_results = false
+      state.loading_results = false
       if curr_batch_id ~= global_batch_id then return end
 
       if out.code ~= 0 then
@@ -409,7 +411,7 @@ end
 local replace
 --- @param nrs NrOpts
 replace = function(nrs)
-  if vim.g.rg_far_loading_results then
+  if state.loading_results then
     return notify(vim.log.levels.INFO, "Results are currently loading, aborting replace")
   end
 
@@ -471,23 +473,23 @@ local init_plug_remaps = function(nrs)
   vim.keymap.set("n", "<Plug>RgFarOpenResult", function()
     local line = vim.api.nvim_get_current_line()
     local filename, row_1i = unpack(vim.split(line, "|"))
-    vim.api.nvim_win_call(vim.g.rg_far_curr_winnr, function()
+    vim.api.nvim_win_call(state.curr_winnr, function()
       vim.cmd.edit(filename)
     end)
-    vim.api.nvim_win_set_cursor(vim.g.rg_far_curr_winnr, { tonumber(row_1i), 0, })
+    vim.api.nvim_win_set_cursor(state.curr_winnr, { tonumber(row_1i), 0, })
   end, { buffer = nrs.results_bufnr, })
 
   vim.keymap.set("n", "<Plug>RgFarClose", function()
-    if vim.api.nvim_win_is_valid(vim.g.rg_far_input_winnr) then
-      vim.api.nvim_win_close(vim.g.rg_far_input_winnr, true)
+    if vim.api.nvim_win_is_valid(state.input_winnr) then
+      vim.api.nvim_win_close(state.input_winnr, true)
     end
   end)
 end
 
 M.open = function()
-  vim.g.rg_far_curr_winnr = vim.api.nvim_get_current_win()
-  if vim.api.nvim_win_is_valid(vim.g.rg_far_input_winnr) then
-    vim.api.nvim_set_current_win(vim.g.rg_far_input_winnr)
+  state.curr_winnr = vim.api.nvim_get_current_win()
+  if vim.api.nvim_win_is_valid(state.input_winnr) then
+    vim.api.nvim_set_current_win(state.input_winnr)
     return vim.notify(vim.log.levels.INFO, "[rg-far] Already open")
   end
 
