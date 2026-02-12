@@ -24,7 +24,7 @@ end
 --- @param msg string
 --- @param ... any
 local notify = function(level, msg, ...)
-  msg = "[tree.nvim]: " .. msg
+  msg = "[rg-far.nvim]: " .. msg
   vim.notify(msg:format(...), level)
 end
 
