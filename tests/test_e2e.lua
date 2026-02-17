@@ -108,6 +108,7 @@ local T = MiniTest.new_set {
       vim.fn.writefile({ "goodbye world", "foo bar", }, "test_dir/file1.txt")
       vim.fn.writefile({ "goodbye universe", "baz qux", }, "test_dir/file2.txt")
       vim.fn.writefile({ "foo bar", "foo baz", "foo qux", }, "test_dir/multi.txt")
+      vim.fn.writefile({ "line one", "foo bar", "line three", }, "test_dir/cursor_test.txt")
       vim.fn.mkdir("test_dir/subdir", "p")
       vim.fn.writefile({ "goodbye there", "nested content", }, "test_dir/subdir/file3.txt")
     end,
@@ -638,6 +639,30 @@ T["navigation"]["<Plug>RgFarOpenResult opens result in original window"] = funct
 
   local cursor = child.api.nvim_win_get_cursor(original_win)
   eq(cursor[1], 1)
+end
+
+T["navigation"]["<Plug>RgFarOpenResult places cursor at correct line"] = function()
+  local original_wins = child.api.nvim_list_wins()
+  local original_win = original_wins[1]
+
+  child.lua [[M.open()]]
+
+  type_in_input_buffer(0, "foo")
+  type_in_input_buffer(2, "-g")
+  type_in_input_buffer(3, "test_dir/cursor_test.txt")
+  vim.uv.sleep(delay)
+
+  local results_buf = get_results_buffer()
+  local lines = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
+  local non_empty = get_non_empty_lines(lines)
+  eq(#non_empty, 1)
+  eq(non_empty[1]:find("test_dir/cursor_test.txt|2|", 1, true) ~= nil, true)
+
+  child.api.nvim_set_current_win(get_results_window())
+  trigger_plug_map "<Plug>RgFarOpenResult"
+
+  local cursor = child.api.nvim_win_get_cursor(original_win)
+  eq(cursor[1], 2)
 end
 
 T["close"] = MiniTest.new_set()
