@@ -36,13 +36,21 @@ local get_rg_far_windows = function()
   return rg_far_wins
 end
 
-local get_results_buffer = function()
+local get_results_window = function()
   local wins = child.api.nvim_list_wins()
   for _, win in ipairs(wins) do
     local winbar = child.api.nvim_win_get_option(win, "winbar")
     if winbar:match "^Results" then
-      return child.api.nvim_win_get_buf(win)
+      return win
     end
+  end
+  return nil
+end
+
+local get_results_buffer = function()
+  local win = get_results_window()
+  if win then
+    return child.api.nvim_win_get_buf(win)
   end
   return nil
 end
@@ -179,11 +187,19 @@ T["searching"]["handles empty search"] = function()
 end
 
 T["searching"]["respects ripgrep flags"] = function()
+  child.lua [[M.open()]]
 
-end
+  type_in_input_buffer(0, "GOODBYE")
+  type_in_input_buffer(2, "-i")
+  type_in_input_buffer(3, "-g")
+  type_in_input_buffer(4, "test_dir/**")
+  vim.uv.sleep(delay)
 
-T["searching"]["debounces input changes"] = function()
+  local results_buf = get_results_buffer()
+  local results = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
+  local non_empty = vim.tbl_filter(function(line) return line ~= "" end, results)
 
+  eq(#non_empty, 3)
 end
 
 T["replace"] = MiniTest.new_set()
@@ -245,11 +261,43 @@ T["replace"]["<Plug>RgFarReplace replaces text in files"] = function()
 end
 
 T["replace"]["<Plug>RgFarReplace replaces text in open buffers"] = function()
+  child.cmd "edit test_dir/file1.txt"
+  child.cmd "edit test_dir/file2.txt"
 
+  child.lua [[M.open()]]
+
+  type_in_input_buffer(0, "goodbye")
+  type_in_input_buffer(1, "hello")
+  type_in_input_buffer(2, "-g")
+  type_in_input_buffer(3, "test_dir/**")
+  vim.uv.sleep(delay)
+
+  mock_confirm(1)
+
+  trigger_plug_map "<Plug>RgFarReplace"
+  vim.uv.sleep(delay)
+
+  local file1_bufnr = child.fn.bufnr "test_dir/file1.txt"
+  local file1_lines = child.api.nvim_buf_get_lines(file1_bufnr, 0, -1, false)
+  eq(file1_lines[1], "hello world")
+
+  local file2_bufnr = child.fn.bufnr "test_dir/file2.txt"
+  local file2_lines = child.api.nvim_buf_get_lines(file2_bufnr, 0, -1, false)
+  eq(file2_lines[1], "hello universe")
 end
 
 T["replace"]["<Plug>RgFarReplace aborts when loading"] = function()
+  child.lua [[M.open()]]
 
+  type_in_input_buffer(0, "goodbye")
+  type_in_input_buffer(1, "hello")
+  type_in_input_buffer(2, "-g")
+  type_in_input_buffer(3, "test_dir/**")
+
+  trigger_plug_map "<Plug>RgFarReplace"
+
+  local file1_contents = child.fn.readfile "test_dir/file1.txt"
+  eq(file1_contents[1], "goodbye world")
 end
 
 T["quickfix"] = MiniTest.new_set()
@@ -289,7 +337,34 @@ end
 
 T["navigation"] = MiniTest.new_set()
 T["navigation"]["<Plug>RgFarOpenResult opens result in original window"] = function()
+  local original_wins = child.api.nvim_list_wins()
+  eq(#original_wins, 1)
+  local original_win = original_wins[1]
 
+  child.lua [[M.open()]]
+
+  type_in_input_buffer(0, "goodbye")
+  type_in_input_buffer(2, "-g")
+  type_in_input_buffer(3, "test_dir/**")
+  vim.uv.sleep(delay)
+
+  child.api.nvim_set_current_win(get_results_window())
+
+  trigger_plug_map "<Plug>RgFarOpenResult"
+
+  local original_buf = child.api.nvim_win_get_buf(original_win)
+  local bufname = child.api.nvim_buf_get_name(original_buf)
+
+  local expected_files = {
+    child.lua_get [[vim.fs.abspath "test_dir/file1.txt"]],
+    child.lua_get [[vim.fs.abspath "test_dir/file2.txt"]],
+    child.lua_get [[vim.fs.abspath "test_dir/subdir/file3.txt"]],
+  }
+
+  eq(vim.tbl_contains(expected_files, bufname), true)
+
+  local cursor = child.api.nvim_win_get_cursor(original_win)
+  eq(cursor[1], 1)
 end
 
 T["close"] = MiniTest.new_set()
@@ -307,7 +382,36 @@ end
 
 T["refresh"] = MiniTest.new_set()
 T["refresh"]["<Plug>RgFarRefreshResults refreshes results"] = function()
+  child.lua [[M.open()]]
 
+  type_in_input_buffer(0, "goodbye")
+  type_in_input_buffer(2, "-g")
+  type_in_input_buffer(3, "test_dir/**")
+  vim.uv.sleep(delay)
+
+  local results_buf = get_results_buffer()
+  local results_before = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
+  local non_empty_before = vim.tbl_filter(function(line) return line ~= "" end, results_before)
+  eq(#non_empty_before, 3)
+
+  child.fn.writefile({ "goodbye friend", "foo bar", }, "test_dir/file1.txt")
+
+  trigger_plug_map "<Plug>RgFarRefreshResults"
+  vim.uv.sleep(delay)
+
+  local results_after = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
+  local non_empty_after = vim.tbl_filter(function(line) return line ~= "" end, results_after)
+
+  eq(#non_empty_after, 3)
+
+  local has_friend = false
+  for _, line in ipairs(non_empty_after) do
+    if line:match "goodbye friend" then
+      has_friend = true
+      break
+    end
+  end
+  eq(has_friend, true)
 end
 
 return T
