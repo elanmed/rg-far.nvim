@@ -40,7 +40,7 @@ local get_results_window = function()
   local wins = child.api.nvim_list_wins()
   for _, win in ipairs(wins) do
     local winbar = child.api.nvim_win_get_option(win, "winbar")
-    if winbar:match "^Results" then
+    if vim.startswith(winbar, "Results") then
       return win
     end
   end
@@ -56,7 +56,7 @@ local get_results_buffer = function()
 end
 
 local is_input_window = function(winbar)
-  return winbar == "Input" or winbar:match "^rg"
+  return winbar == "Input" or vim.startswith(winbar, "rg")
 end
 
 local type_in_input_buffer = function(line_index, text)
@@ -272,8 +272,8 @@ T["stderr"]["shows ripgrep errors"] = function()
   local stderr_lines = child.api.nvim_buf_get_lines(stderr_buf, 0, -1, false)
   local stderr_text = table.concat(stderr_lines, "\n")
 
-  eq(stderr_text:match "regex parse error" ~= nil, true)
-  eq(stderr_text:match "unclosed character class" ~= nil, true)
+  eq(stderr_text:find("regex parse error", 1, true) ~= nil, true)
+  eq(stderr_text:find("unclosed character class", 1, true) ~= nil, true)
 end
 
 T["replace"] = MiniTest.new_set()
@@ -478,12 +478,12 @@ T["replace"]["<Plug>RgFarReplace only replaces non-deleted results"] = function(
   local non_empty_before = get_non_empty_lines(lines_before)
   eq(#non_empty_before, 3)
 
-  local file1_line_num = vim.iter(ipairs(lines_before)):find(function(_, line)
+  local file1_line_1i = vim.iter(ipairs(lines_before)):find(function(_, line)
     return line:find("test_dir/file1.txt", 1, true)
   end)
-  local file1_line_idx = file1_line_num - 1
+  local file1_line_0i = file1_line_1i - 1
 
-  child.api.nvim_buf_set_lines(results_buf, file1_line_idx, file1_line_idx + 1, false, {})
+  child.api.nvim_buf_set_lines(results_buf, file1_line_0i, file1_line_0i + 1, false, {})
 
   local lines_after = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
   local non_empty_after = get_non_empty_lines(lines_after)
@@ -521,7 +521,7 @@ T["window management"]["closes all windows when results window is closed"] = fun
   eq(#rg_far_wins_before, 3)
 
   local results_win = vim.iter(rg_far_wins_before):find(function(win)
-    return win.winbar:match "^Results"
+    return vim.startswith(win.winbar, "Results")
   end)
   child.api.nvim_win_close(results_win.winnr, true)
 
@@ -678,7 +678,7 @@ T["refresh"]["<Plug>RgFarRefreshResults refreshes results"] = function()
   eq(#non_empty_after, 3)
 
   eq(vim.iter(non_empty_after):any(function(line)
-    return line:match "goodbye friend"
+    return line:find("goodbye friend", 1, true)
   end), true)
 end
 
