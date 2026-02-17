@@ -76,6 +76,24 @@ local trigger_plug_map = function(map_name)
   child.api.nvim_feedkeys(keys, "x", false)
 end
 
+local get_conceal_marks = function(extmarks)
+  return vim.iter(extmarks):filter(function(mark)
+    return mark[4].conceal ~= nil
+  end):totable()
+end
+
+local get_virt_line_marks = function(extmarks)
+  return vim.iter(extmarks):filter(function(mark)
+    return mark[4].virt_lines ~= nil
+  end):totable()
+end
+
+local get_non_empty_lines = function(lines)
+  return vim.iter(lines):filter(function(line)
+    return line ~= ""
+  end):totable()
+end
+
 local T = MiniTest.new_set {
   hooks = {
     pre_case = function()
@@ -180,7 +198,7 @@ T["searching"]["finds text in files"] = function()
   local results_buf = get_results_buffer()
   local results = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
 
-  local non_empty_results = vim.iter(results):filter(function(line) return line ~= "" end):totable()
+  local non_empty_results = get_non_empty_lines(results)
   eq(#non_empty_results, 3)
 end
 
@@ -194,7 +212,7 @@ T["searching"]["shows results with filename and line number"] = function()
 
   local results_buf = get_results_buffer()
   local lines = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
-  local non_empty = vim.iter(lines):filter(function(line) return line ~= "" end):totable()
+  local non_empty = get_non_empty_lines(lines)
 
   local expected = {
     "test_dir/file1.txt|1|goodbye world",
@@ -216,7 +234,7 @@ T["searching"]["handles empty search"] = function()
   local results_buf = get_results_buffer()
   local results = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
 
-  local non_empty_results = vim.iter(results):filter(function(line) return line ~= "" end):totable()
+  local non_empty_results = get_non_empty_lines(results)
   eq(#non_empty_results, 0)
 end
 
@@ -231,7 +249,7 @@ T["searching"]["respects ripgrep flags"] = function()
 
   local results_buf = get_results_buffer()
   local results = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
-  local non_empty = vim.iter(results):filter(function(line) return line ~= "" end):totable()
+  local non_empty = get_non_empty_lines(results)
 
   eq(#non_empty, 3)
 end
@@ -422,44 +440,26 @@ T["results buffer"]["re-highlights on manual edit"] = function()
 
   local results_buf = get_results_buffer()
   local lines_before = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
-  local non_empty_before = vim.iter(lines_before):filter(function(line) return line ~= "" end):totable()
+  local non_empty_before = get_non_empty_lines(lines_before)
   eq(#non_empty_before, 3)
 
   local ns = child.lua_get [[vim.api.nvim_create_namespace 'rg-far']]
   local extmarks_before = child.api.nvim_buf_get_extmarks(results_buf, ns, 0, -1, { details = true, })
 
-  local conceal_marks_before = vim.iter(extmarks_before):filter(function(mark)
-    return mark[4].conceal ~= nil
-  end):totable()
-  local conceal_count_before = #conceal_marks_before
-  eq(conceal_count_before, 3)
-
-  local virt_line_marks_before = vim.iter(extmarks_before):filter(function(mark)
-    return mark[4].virt_lines ~= nil
-  end):totable()
-  local virt_line_count_before = #virt_line_marks_before
-  eq(virt_line_count_before, 3)
+  eq(#get_conceal_marks(extmarks_before), 3)
+  eq(#get_virt_line_marks(extmarks_before), 3)
 
   child.api.nvim_set_current_win(get_results_window())
   child.api.nvim_feedkeys(child.api.nvim_replace_termcodes("dd", true, false, true), "x", false)
-  vim.uv.sleep(100)
 
   local lines_after = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
-  local non_empty_after = vim.iter(lines_after):filter(function(line) return line ~= "" end):totable()
+  local non_empty_after = get_non_empty_lines(lines_after)
   eq(#non_empty_after, 2)
 
   local extmarks_after = child.api.nvim_buf_get_extmarks(results_buf, ns, 0, -1, { details = true, })
 
-  local conceal_marks_after = vim.iter(extmarks_after):filter(function(mark)
-    return mark[4].conceal ~= nil
-  end):totable()
-  eq(#conceal_marks_after, 2)
-
-  local virt_line_marks_after = vim.iter(extmarks_after):filter(function(mark)
-    return mark[4].virt_lines ~= nil
-  end):totable()
-  local virt_line_count_after = #virt_line_marks_after
-  eq(virt_line_count_after, 2)
+  eq(#get_conceal_marks(extmarks_after), 2)
+  eq(#get_virt_line_marks(extmarks_after), 2)
 end
 
 T["quickfix"] = MiniTest.new_set()
@@ -549,7 +549,7 @@ T["refresh"]["<Plug>RgFarRefreshResults refreshes results"] = function()
 
   local results_buf = get_results_buffer()
   local results_before = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
-  local non_empty_before = vim.iter(results_before):filter(function(line) return line ~= "" end):totable()
+  local non_empty_before = get_non_empty_lines(results_before)
   eq(#non_empty_before, 3)
 
   child.fn.writefile({ "goodbye friend", "foo bar", }, "test_dir/file1.txt")
@@ -558,7 +558,7 @@ T["refresh"]["<Plug>RgFarRefreshResults refreshes results"] = function()
   vim.uv.sleep(delay)
 
   local results_after = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
-  local non_empty_after = vim.iter(results_after):filter(function(line) return line ~= "" end):totable()
+  local non_empty_after = get_non_empty_lines(results_after)
 
   eq(#non_empty_after, 3)
 
