@@ -134,6 +134,40 @@ T["M.open()"]["focuses input window"] = function()
   eq(is_input_window(winbar), true)
 end
 
+T["M.open()"]["when already open does not create duplicate windows"] = function()
+  child.lua [[M.open()]]
+
+  local wins_before = get_rg_far_windows()
+  eq(#wins_before, 3)
+
+  local first_input_win = vim.iter(wins_before):find(function(win)
+    return is_input_window(win.winbar)
+  end)
+  local first_input_winnr = first_input_win.winnr
+
+  child.api.nvim_set_current_win(child.api.nvim_list_wins()[1])
+
+  child.lua [[ M.open() ]]
+
+  local wins_after = get_rg_far_windows()
+  eq(#wins_after, 3)
+
+  local curr_win = child.api.nvim_get_current_win()
+  eq(curr_win, first_input_winnr)
+end
+
+T["configuration"] = MiniTest.new_set()
+T["configuration"]["respects drawer_width"] = function()
+  child.lua [[vim.g.rg_far = { drawer_width = 0.5 }]]
+  child.lua [[M.open()]]
+
+  local results_win = get_results_window()
+  local width = child.api.nvim_win_get_width(results_win)
+  local expected_width = math.floor(child.o.columns * 0.5)
+
+  eq(width, expected_width)
+end
+
 T["searching"] = MiniTest.new_set()
 T["searching"]["finds text in files"] = function()
   child.lua [[M.open()]]
@@ -146,7 +180,7 @@ T["searching"]["finds text in files"] = function()
   local results_buf = get_results_buffer()
   local results = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
 
-  local non_empty_results = vim.tbl_filter(function(line) return line ~= "" end, results)
+  local non_empty_results = vim.iter(results):filter(function(line) return line ~= "" end):totable()
   eq(#non_empty_results, 3)
 end
 
@@ -160,7 +194,7 @@ T["searching"]["shows results with filename and line number"] = function()
 
   local results_buf = get_results_buffer()
   local lines = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
-  local non_empty = vim.tbl_filter(function(line) return line ~= "" end, lines)
+  local non_empty = vim.iter(lines):filter(function(line) return line ~= "" end):totable()
 
   local expected = {
     "test_dir/file1.txt|1|goodbye world",
@@ -182,7 +216,7 @@ T["searching"]["handles empty search"] = function()
   local results_buf = get_results_buffer()
   local results = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
 
-  local non_empty_results = vim.tbl_filter(function(line) return line ~= "" end, results)
+  local non_empty_results = vim.iter(results):filter(function(line) return line ~= "" end):totable()
   eq(#non_empty_results, 0)
 end
 
@@ -197,7 +231,7 @@ T["searching"]["respects ripgrep flags"] = function()
 
   local results_buf = get_results_buffer()
   local results = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
-  local non_empty = vim.tbl_filter(function(line) return line ~= "" end, results)
+  local non_empty = vim.iter(results):filter(function(line) return line ~= "" end):totable()
 
   eq(#non_empty, 3)
 end
@@ -300,6 +334,134 @@ T["replace"]["<Plug>RgFarReplace aborts when loading"] = function()
   eq(file1_contents[1], "goodbye world")
 end
 
+T["replace"]["<Plug>RgFarReplace replaces with empty string"] = function()
+  child.lua [[M.open()]]
+
+  type_in_input_buffer(0, "goodbye")
+  type_in_input_buffer(2, "-g")
+  type_in_input_buffer(3, "test_dir/**")
+  vim.uv.sleep(delay)
+
+  local results_buf = get_results_buffer()
+
+  child.api.nvim_buf_set_lines(results_buf, 0, -1, false, {
+    "test_dir/file1.txt|1| world",
+    "test_dir/file2.txt|1| universe",
+    "test_dir/subdir/file3.txt|1| there",
+  })
+
+  mock_confirm(1)
+
+  trigger_plug_map "<Plug>RgFarReplace"
+  vim.uv.sleep(delay)
+
+  local file1_contents = child.fn.readfile "test_dir/file1.txt"
+  eq(file1_contents[1], " world")
+
+  local file2_contents = child.fn.readfile "test_dir/file2.txt"
+  eq(file2_contents[1], " universe")
+
+  local file3_contents = child.fn.readfile "test_dir/subdir/file3.txt"
+  eq(file3_contents[1], " there")
+end
+
+T["window management"] = MiniTest.new_set()
+T["window management"]["closes all windows when input window is closed"] = function()
+  child.lua [[M.open()]]
+
+  local rg_far_wins_before = get_rg_far_windows()
+  eq(#rg_far_wins_before, 3)
+
+  local input_win = vim.iter(rg_far_wins_before):find(function(win)
+    return is_input_window(win.winbar)
+  end)
+  child.api.nvim_win_close(input_win.winnr, true)
+
+  local rg_far_wins_after = get_rg_far_windows()
+  eq(#rg_far_wins_after, 0)
+end
+
+T["window management"]["closes all windows when results window is closed"] = function()
+  child.lua [[M.open()]]
+
+  local rg_far_wins_before = get_rg_far_windows()
+  eq(#rg_far_wins_before, 3)
+
+  local results_win = vim.iter(rg_far_wins_before):find(function(win)
+    return win.winbar:match "^Results"
+  end)
+  child.api.nvim_win_close(results_win.winnr, true)
+
+  local rg_far_wins_after = get_rg_far_windows()
+  eq(#rg_far_wins_after, 0)
+end
+
+T["window management"]["closes all windows when stderr window is closed"] = function()
+  child.lua [[M.open()]]
+
+  local rg_far_wins_before = get_rg_far_windows()
+  eq(#rg_far_wins_before, 3)
+
+  local stderr_win = vim.iter(rg_far_wins_before):find(function(win)
+    return win.winbar == "Stderr"
+  end)
+  child.api.nvim_win_close(stderr_win.winnr, true)
+
+  local rg_far_wins_after = get_rg_far_windows()
+  eq(#rg_far_wins_after, 0)
+end
+
+T["results buffer"] = MiniTest.new_set()
+T["results buffer"]["re-highlights on manual edit"] = function()
+  child.lua [[M.open()]]
+
+  type_in_input_buffer(0, "goodbye")
+  type_in_input_buffer(2, "-g")
+  type_in_input_buffer(3, "test_dir/**")
+  vim.uv.sleep(delay)
+
+  local results_buf = get_results_buffer()
+  local lines_before = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
+  local non_empty_before = vim.iter(lines_before):filter(function(line) return line ~= "" end):totable()
+  eq(#non_empty_before, 3)
+
+  local ns = child.lua_get [[vim.api.nvim_create_namespace 'rg-far']]
+  local extmarks_before = child.api.nvim_buf_get_extmarks(results_buf, ns, 0, -1, { details = true, })
+
+  local conceal_marks_before = vim.iter(extmarks_before):filter(function(mark)
+    return mark[4].conceal ~= nil
+  end):totable()
+  local conceal_count_before = #conceal_marks_before
+  eq(conceal_count_before, 3)
+
+  local virt_line_marks_before = vim.iter(extmarks_before):filter(function(mark)
+    return mark[4].virt_lines ~= nil
+  end):totable()
+  local virt_line_count_before = #virt_line_marks_before
+  eq(virt_line_count_before, 3)
+
+  child.api.nvim_set_current_win(get_results_window())
+  child.api.nvim_feedkeys(child.api.nvim_replace_termcodes("dd", true, false, true), "x", false)
+  vim.uv.sleep(100)
+
+  local lines_after = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
+  local non_empty_after = vim.iter(lines_after):filter(function(line) return line ~= "" end):totable()
+  eq(#non_empty_after, 2)
+
+  local extmarks_after = child.api.nvim_buf_get_extmarks(results_buf, ns, 0, -1, { details = true, })
+
+  local conceal_marks_after = vim.iter(extmarks_after):filter(function(mark)
+    return mark[4].conceal ~= nil
+  end):totable()
+  eq(#conceal_marks_after, 2)
+
+  local virt_line_marks_after = vim.iter(extmarks_after):filter(function(mark)
+    return mark[4].virt_lines ~= nil
+  end):totable()
+  local virt_line_count_after = #virt_line_marks_after
+  eq(virt_line_count_after, 2)
+end
+
 T["quickfix"] = MiniTest.new_set()
 T["quickfix"]["<Plug>RgFarResultsToQfList sends results to quickfix"] = function()
   child.lua [[M.open()]]
@@ -315,13 +477,9 @@ T["quickfix"]["<Plug>RgFarResultsToQfList sends results to quickfix"] = function
 
   eq(#qf_list, 3)
 
-  local actual = {}
-  for _, entry in ipairs(qf_list) do
-    table.insert(actual, {
-      lnum = entry.lnum,
-      text = entry.text,
-    })
-  end
+  local actual = vim.iter(qf_list):map(function(entry)
+    return { lnum = entry.lnum, text = entry.text, }
+  end):totable()
 
   local expected = {
     { lnum = 1, text = "goodbye world", },
@@ -391,7 +549,7 @@ T["refresh"]["<Plug>RgFarRefreshResults refreshes results"] = function()
 
   local results_buf = get_results_buffer()
   local results_before = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
-  local non_empty_before = vim.tbl_filter(function(line) return line ~= "" end, results_before)
+  local non_empty_before = vim.iter(results_before):filter(function(line) return line ~= "" end):totable()
   eq(#non_empty_before, 3)
 
   child.fn.writefile({ "goodbye friend", "foo bar", }, "test_dir/file1.txt")
@@ -400,18 +558,13 @@ T["refresh"]["<Plug>RgFarRefreshResults refreshes results"] = function()
   vim.uv.sleep(delay)
 
   local results_after = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
-  local non_empty_after = vim.tbl_filter(function(line) return line ~= "" end, results_after)
+  local non_empty_after = vim.iter(results_after):filter(function(line) return line ~= "" end):totable()
 
   eq(#non_empty_after, 3)
 
-  local has_friend = false
-  for _, line in ipairs(non_empty_after) do
-    if line:match "goodbye friend" then
-      has_friend = true
-      break
-    end
-  end
-  eq(has_friend, true)
+  eq(vim.iter(non_empty_after):any(function(line)
+    return line:match "goodbye friend"
+  end), true)
 end
 
 return T
