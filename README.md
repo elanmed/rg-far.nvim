@@ -6,7 +6,7 @@ A minimal find-and-replace interface powered by ripgrep
 
 ### Overview
 
-- ~450 LOC, 1 source file, 1 test file (TODO)
+- ~450 LOC, 1 source file, 1 test file
 - Simple principle: the results buffer is the source of truth
   - `rg-far` uses the `--with-filename`, `--line-number`, and `replace` ripgrep flags so that each line in the results buffer is
     formatted as: `[filename]|[row]|[result with the searched text replaced]`. This means that when calling `<PlugRgFarReplace`,

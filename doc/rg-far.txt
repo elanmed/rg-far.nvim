@@ -1,4 +1,4 @@
-*rg-far.txt*                                     Last change: 2025 December 02
+*rg-far.txt*                                      Last change: 2026 January 11
 
 ==============================================================================
 Table of Contents                                   *rg-far-table-of-contents*
@@ -26,7 +26,7 @@ demo <https://elanmed.dev/nvim-plugins/rg-far.png>
                                                                               
 OVERVIEW                                                     *rg-far-overview*
 
-- ~450 LOC, 1 source file, 1 test file (TODO)
+- ~450 LOC, 1 source file, 1 test file
 - Simple principle: the results buffer is the source of truth - `rg-far` uses
   the `--with-filename`, `--line-number`, and `replace` ripgrep flags so that
   each line in the results buffer is formatted as: `[filename]|[row]|[result
