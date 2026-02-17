@@ -490,7 +490,7 @@ M.open = function()
   state.curr_winnr = vim.api.nvim_get_current_win()
   if vim.api.nvim_win_is_valid(state.input_winnr) then
     vim.api.nvim_set_current_win(state.input_winnr)
-    return vim.notify(vim.log.levels.INFO, "[rg-far] Already open")
+    return notify(vim.log.levels.INFO, "[rg-far] Already open")
   end
 
   vim.api.nvim_clear_autocmds { group = augroup, }
