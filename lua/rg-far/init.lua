@@ -251,6 +251,11 @@ local highlight_and_set_input_buf = function(nrs)
 
   local lines = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 0, -1, false)
   local buffer_lines = vim.deepcopy(lines)
+
+  while #buffer_lines > 3 do
+    table.remove(buffer_lines)
+  end
+
   while #buffer_lines < 3 do
     table.insert(buffer_lines, "")
   end
@@ -259,7 +264,7 @@ local highlight_and_set_input_buf = function(nrs)
 
   set_input_buf_extmark { idx_1i = 1, label = "Find", }
   set_input_buf_extmark { idx_1i = 2, label = "Replace", }
-  set_input_buf_extmark { idx_1i = #lines, label = "Flags (one per line)", }
+  set_input_buf_extmark { idx_1i = 3, label = "Flags", }
 
   vim.api.nvim_win_set_height(nrs.input_winnr, #lines + 3 + 1)
 end
@@ -351,9 +356,13 @@ local populate_and_highlight_results = function(nrs)
       return { "--replace", replace_lines[1], }
     end)()
 
-    local flags = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 2, -1, false)
-    flags = vim.tbl_filter(function(flag) return flag ~= "" end, flags)
-    if #flags == 0 then flags = {} end
+    local flags = (function()
+      local flag_lines = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 2, 3, false)
+      if #flag_lines == 0 then return {} end
+      if #flag_lines == 1 and flag_lines[1] == "" then return {} end
+      return vim.split(flag_lines[1], "%s+", { trimempty = true, })
+    end)()
+
 
     local args = vim.iter {
           "rg",
@@ -362,7 +371,7 @@ local populate_and_highlight_results = function(nrs)
           "--line-number",
           replace_flag,
           "--field-match-separator",
-          "|",
+          "'|'",
           flags,
           "--",
           find,
@@ -370,14 +379,16 @@ local populate_and_highlight_results = function(nrs)
         :flatten()
         :totable()
 
-    local escaped_flags = vim.tbl_map(function(flag) return vim.fn.shellescape(flag) end,
-      vim.iter(flags):flatten():totable())
-    local pretty_rg_cmd = ("rg ... %s -- %s"):format(table.concat(escaped_flags, ""), vim.fn.shellescape(find))
+    local pretty_args = vim.iter { replace_flag, flags, "--", find, }:flatten():totable()
+    local pretty_rg_cmd = ("rg ... %s"):format(table.concat(pretty_args, " "))
 
     vim.wo[nrs.results_winnr].winbar = "Results (loading ...)"
 
+    -- outsource escaping to the shell
+    local rg_cmd = { "sh", "-c", table.concat(args, " "), }
+
     state.loading_results = true
-    system_obj = vim.system(args, {}, function(out)
+    system_obj = vim.system(rg_cmd, {}, function(out)
       state.loading_results = false
       if curr_batch_id ~= global_batch_id then return end
 
@@ -477,6 +488,15 @@ local init_plug_remaps = function(nrs)
   end)
 end
 
+--- @param nrs NrOpts
+local init_keymap_overrides = function(nrs)
+  for _, buffer in ipairs { nrs.results_bufnr, } do
+    vim.keymap.set("i", "<cr>", "<nop>", { buffer = buffer, })
+    vim.keymap.set("n", "o", "<nop>", { buffer = buffer, })
+    vim.keymap.set("n", "O", "<nop>", { buffer = buffer, })
+  end
+end
+
 M.open = function()
   state.curr_winnr = vim.api.nvim_get_current_win()
   if vim.api.nvim_win_is_valid(state.input_winnr) then
@@ -488,6 +508,7 @@ M.open = function()
 
   local nrs = init_windows_buffers()
   init_plug_remaps(nrs)
+  init_keymap_overrides(nrs)
   highlight_and_set_input_buf(nrs)
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
