@@ -193,8 +193,8 @@ T["searching"]["finds text in files"] = function()
   child.lua [[M.open()]]
 
   type_in_input_buffer(0, "goodbye")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
+
   vim.uv.sleep(delay)
 
   local results_buf = get_results_buffer()
@@ -208,8 +208,8 @@ T["searching"]["shows results with filename and line number"] = function()
   child.lua [[M.open()]]
 
   type_in_input_buffer(0, "goodbye")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
+
   vim.uv.sleep(delay)
 
   local results_buf = get_results_buffer()
@@ -244,9 +244,8 @@ T["searching"]["respects ripgrep flags"] = function()
   child.lua [[M.open()]]
 
   type_in_input_buffer(0, "GOODBYE")
-  type_in_input_buffer(2, "-i")
-  type_in_input_buffer(3, "-g")
-  type_in_input_buffer(4, "test_dir/**")
+  type_in_input_buffer(2, "-i -g 'test_dir/**'")
+
   vim.uv.sleep(delay)
 
   local results_buf = get_results_buffer()
@@ -260,7 +259,7 @@ T["stderr"] = MiniTest.new_set()
 T["stderr"]["shows ripgrep errors"] = function()
   child.lua [[M.open()]]
 
-  type_in_input_buffer(0, "[invalid(regex")
+  type_in_input_buffer(0, "[a")
   vim.uv.sleep(delay)
 
   local wins = child.api.nvim_list_wins()
@@ -283,8 +282,7 @@ T["replace"]["<Plug>RgFarReplace confirms before replacing"] = function()
 
   type_in_input_buffer(0, "goodbye")
   type_in_input_buffer(1, "hello")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
   vim.uv.sleep(delay)
 
   local file1_before = child.fn.readfile "test_dir/file1.txt"
@@ -311,8 +309,7 @@ T["replace"]["<Plug>RgFarReplace replaces text in files"] = function()
 
   type_in_input_buffer(0, "goodbye")
   type_in_input_buffer(1, "hello")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
   vim.uv.sleep(delay)
 
   local file1_before = child.fn.readfile "test_dir/file1.txt"
@@ -343,8 +340,7 @@ T["replace"]["<Plug>RgFarReplace replaces text in open buffers"] = function()
 
   type_in_input_buffer(0, "goodbye")
   type_in_input_buffer(1, "hello")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
   vim.uv.sleep(delay)
 
   mock_confirm(1)
@@ -366,8 +362,7 @@ T["replace"]["<Plug>RgFarReplace aborts when loading"] = function()
 
   type_in_input_buffer(0, "goodbye")
   type_in_input_buffer(1, "hello")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
 
   trigger_plug_map "<Plug>RgFarReplace"
 
@@ -379,8 +374,7 @@ T["replace"]["<Plug>RgFarReplace replaces with empty string"] = function()
   child.lua [[M.open()]]
 
   type_in_input_buffer(0, "goodbye")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
   vim.uv.sleep(delay)
 
   local results_buf = get_results_buffer()
@@ -411,8 +405,8 @@ T["replace"]["<Plug>RgFarReplace respects manual edits to results"] = function()
 
   type_in_input_buffer(0, "goodbye")
   type_in_input_buffer(1, "hello")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
+
   vim.uv.sleep(delay)
 
   local results_buf = get_results_buffer()
@@ -446,8 +440,7 @@ T["replace"]["<Plug>RgFarReplace handles multiple matches per file"] = function(
 
   type_in_input_buffer(0, "foo")
   type_in_input_buffer(1, "replaced")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/multi.txt")
+  type_in_input_buffer(2, "-g test_dir/multi.txt")
   vim.uv.sleep(delay)
 
   local results_buf = get_results_buffer()
@@ -470,8 +463,8 @@ T["replace"]["<Plug>RgFarReplace only replaces non-deleted results"] = function(
 
   type_in_input_buffer(0, "goodbye")
   type_in_input_buffer(1, "hello")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
+
   vim.uv.sleep(delay)
 
   local results_buf = get_results_buffer()
@@ -550,8 +543,8 @@ T["results buffer"]["re-highlights on manual edit"] = function()
   child.lua [[M.open()]]
 
   type_in_input_buffer(0, "goodbye")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
+
   vim.uv.sleep(delay)
 
   local results_buf = get_results_buffer()
@@ -583,8 +576,8 @@ T["quickfix"]["<Plug>RgFarResultsToQfList sends results to quickfix"] = function
   child.lua [[M.open()]]
 
   type_in_input_buffer(0, "goodbye")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
+
   vim.uv.sleep(delay)
 
   trigger_plug_map "<Plug>RgFarResultsToQfList"
@@ -618,8 +611,8 @@ T["navigation"]["<Plug>RgFarOpenResult opens result in original window"] = funct
   child.lua [[M.open()]]
 
   type_in_input_buffer(0, "goodbye")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
+
   vim.uv.sleep(delay)
 
   child.api.nvim_set_current_win(get_results_window())
@@ -648,8 +641,7 @@ T["navigation"]["<Plug>RgFarOpenResult places cursor at correct line"] = functio
   child.lua [[M.open()]]
 
   type_in_input_buffer(0, "foo")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/cursor_test.txt")
+  type_in_input_buffer(2, "-g test_dir/cursor_test.txt")
   vim.uv.sleep(delay)
 
   local results_buf = get_results_buffer()
@@ -683,8 +675,8 @@ T["refresh"]["<Plug>RgFarRefreshResults refreshes results"] = function()
   child.lua [[M.open()]]
 
   type_in_input_buffer(0, "goodbye")
-  type_in_input_buffer(2, "-g")
-  type_in_input_buffer(3, "test_dir/**")
+  type_in_input_buffer(2, "-g 'test_dir/**'")
+
   vim.uv.sleep(delay)
 
   local results_buf = get_results_buffer()
