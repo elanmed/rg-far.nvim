@@ -49,69 +49,7 @@ local get_gopts = function()
   return opts
 end
 
-local function safe_resume(...)
-  local ok, err = coroutine.resume(...)
-  if not ok then
-    error(err)
-  end
-end
-
---- @generic InvariantState, ControlVar
---- @param iterator_factory fun(): ((fun(invariant_state: InvariantState, control_var: ControlVar):ControlVar), InvariantState?, ControlVar?)
---- @param on_iteration fun(entry: ControlVar):nil
---- @param on_complete? fun():nil
-local function throttled_iterator(iterator_factory, on_iteration, on_complete)
-  local threshold_ns = 10 * 1000000
-
-  local function create_throttle()
-    local last_yield = vim.uv.hrtime()
-    return function()
-      local now = vim.uv.hrtime()
-      if (now - last_yield) >= threshold_ns then
-        last_yield = now
-        local thread = coroutine.running()
-        vim.schedule(function() safe_resume(thread) end)
-        coroutine.yield()
-      end
-    end
-  end
-
-  local function process()
-    local maybe_pause = create_throttle()
-
-    local iter_fn, invariant_state, control_var = iterator_factory()
-    while true do
-      maybe_pause()
-
-      local values = { iter_fn(invariant_state, control_var), }
-      control_var = values[1]
-
-      if control_var == nil then
-        if on_complete then on_complete() end
-        return
-      end
-
-      on_iteration(unpack(values))
-    end
-  end
-
-  safe_resume(coroutine.create(process))
-end
-
---- @param promise fun(resolve: fun():nil):nil
-local await = function(promise)
-  local thread = coroutine.running()
-  assert(thread ~= nil, "`await` can only be called in a coroutine")
-  vim.schedule(function() promise(function() coroutine.resume(thread) end) end)
-  coroutine.yield()
-end
-
---- @param fn fun(...):nil
-local async = function(fn)
-  return function(...)
-    safe_resume(coroutine.create(fn), ...)
-  end
-end
+local a = require "rg-far.async"
 
 local ns_id = vim.api.nvim_create_namespace "rg-far"
 local global_batch_id = 0
@@ -305,7 +243,7 @@ local highlight_results_buf = function(nrs)
     end
   end
 
-  throttled_iterator(function() return ipairs(lines) end, highlight_result)
+  a.throttled_iterator(function() return ipairs(lines) end, highlight_result)(function() end)
 end
 
 local timer_id = nil
@@ -445,12 +383,10 @@ replace = function(nrs)
     end
   end
 
-  await(function(resolve)
-    throttled_iterator(
-      function() return ipairs(lines) end,
-      replace_result, resolve
-    )
-  end)
+  a.await(a.throttled_iterator(
+    function() return ipairs(lines) end,
+    replace_result
+  ))
 
   vim.bo[nrs.stderr_bufnr].modifiable = true
   vim.bo[nrs.input_bufnr].modifiable = true
@@ -463,7 +399,8 @@ end
 local init_plug_remaps = function(nrs)
   for _, buffer in ipairs { nrs.stderr_bufnr, nrs.input_bufnr, nrs.results_bufnr, } do
     vim.keymap.set("n", "<Plug>RgFarReplace", function()
-      async(replace)(nrs)
+      local spawn = a.make_spawn(replace)
+      spawn(nrs)
     end, { buffer = buffer, })
     vim.keymap.set("n", "<Plug>RgFarResultsToQfList", function() results_to_qf_list(nrs) end, { buffer = buffer, })
     vim.keymap.set("n", "<Plug>RgFarRefreshResults", function()
