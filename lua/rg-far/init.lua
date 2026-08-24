@@ -243,7 +243,7 @@ local highlight_results_buf = function(nrs)
     end
   end
 
-  a.throttled_iterator(function() return ipairs(lines) end, highlight_result)(function() end)
+  a.throttled_iterator(function() return ipairs(lines) end, { on_iteration = highlight_result, })(function() end)
 end
 
 local timer_id = nil
@@ -385,7 +385,7 @@ replace = function(nrs)
 
   a.await(a.throttled_iterator(
     function() return ipairs(lines) end,
-    replace_result
+    { on_iteration = replace_result, }
   ))
 
   vim.bo[nrs.stderr_bufnr].modifiable = true
