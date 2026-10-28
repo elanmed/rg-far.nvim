@@ -51,7 +51,7 @@ local get_gopts = function()
   return opts
 end
 
-local async_helpers = require "rg-far.async"
+local async_helpers = require "rg-far.async-iterators"
 
 local ns_id = vim.api.nvim_create_namespace "rg-far"
 local global_batch_id = 0
