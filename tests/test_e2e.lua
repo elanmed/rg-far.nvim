@@ -12,7 +12,9 @@ local mock_confirm = function(user_choice)
 end
 
 local validate_confirm_args = function(ref_msg_pattern)
-  local args = child.g.confirm_args
+  local args = child.lua_func(function()
+    return _G.confirm_args
+  end)
   eq(args[1], ref_msg_pattern)
   if args[2] ~= nil then
     eq(args[2], "&Yes\n&No")
@@ -82,19 +84,62 @@ local open_interface = function()
   end)
 end
 
-local wait_until = function(predicate)
-  eq(vim.wait(5000, predicate, 10), true)
+local wait_for_results = function()
+  local completed = child.lua_func(function()
+    return vim.wait(5000, function()
+      for _, win in ipairs(vim.api.nvim_list_wins()) do
+        local winbar = vim.api.nvim_win_get_option(win, "winbar")
+        if vim.startswith(winbar, "Results (") and winbar ~= "Results (loading ...)" then
+          return true
+        end
+      end
+      return false
+    end, 10)
+  end)
+  eq(completed, true)
 end
 
-local wait_for_results = function()
-  wait_until(function()
-    local win = get_results_window()
-    if not win then
+local wait_for_file_lines = function(expected)
+  local completed = child.lua_func(function(expected_files)
+    return vim.wait(5000, function()
+      for _, expected_file in ipairs(expected_files) do
+        if not vim.deep_equal(vim.fn.readfile(expected_file[1]), expected_file[2]) then
+          return false
+        end
+      end
+      return true
+    end, 10)
+  end, expected)
+  eq(completed, true)
+end
+
+local wait_for_buffer_lines = function(expected)
+  local completed = child.lua_func(function(expected_buffers)
+    return vim.wait(5000, function()
+      for _, expected_buffer in ipairs(expected_buffers) do
+        local lines = vim.api.nvim_buf_get_lines(expected_buffer[1], 0, 1, false)
+        if lines[1] ~= expected_buffer[2] then
+          return false
+        end
+      end
+      return true
+    end, 10)
+  end, expected)
+  eq(completed, true)
+end
+
+local wait_for_result_text = function(bufnr, text)
+  local completed = child.lua_func(function(buf, expected_text)
+    return vim.wait(5000, function()
+      for _, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
+        if line:find(expected_text, 1, true) ~= nil then
+          return true
+        end
+      end
       return false
-    end
-    local winbar = child.api.nvim_win_get_option(win, "winbar")
-    return vim.startswith(winbar, "Results (") and winbar ~= "Results (loading ...)"
-  end)
+    end, 10)
+  end, bufnr, text)
+  eq(completed, true)
 end
 
 local get_conceal_marks = function(extmarks)
@@ -355,11 +400,11 @@ T["replace"]["<Plug>RgFarReplace replaces text in files"] = function()
   mock_confirm(1)
 
   trigger_plug_map "<Plug>RgFarReplace"
-  wait_until(function()
-    return child.fn.readfile("test_dir/file1.txt")[1] == "hello world"
-      and child.fn.readfile("test_dir/file2.txt")[1] == "hello universe"
-      and child.fn.readfile("test_dir/subdir/file3.txt")[1] == "hello there"
-  end)
+  wait_for_file_lines {
+    { "test_dir/file1.txt", { "hello world", "foo bar" } },
+    { "test_dir/file2.txt", { "hello universe", "baz qux" } },
+    { "test_dir/subdir/file3.txt", { "hello there", "nested content" } },
+  }
 
   validate_confirm_args "[rg-far] Apply 3 replacements?"
 end
@@ -380,10 +425,10 @@ T["replace"]["<Plug>RgFarReplace replaces text in open buffers"] = function()
   trigger_plug_map "<Plug>RgFarReplace"
   local file1_bufnr = child.fn.bufnr "test_dir/file1.txt"
   local file2_bufnr = child.fn.bufnr "test_dir/file2.txt"
-  wait_until(function()
-    return child.api.nvim_buf_get_lines(file1_bufnr, 0, 1, false)[1] == "hello world"
-      and child.api.nvim_buf_get_lines(file2_bufnr, 0, 1, false)[1] == "hello universe"
-  end)
+  wait_for_buffer_lines {
+    { file1_bufnr, "hello world" },
+    { file2_bufnr, "hello universe" },
+  }
 end
 
 T["replace"]["<Plug>RgFarReplace aborts when loading"] = function()
@@ -417,11 +462,11 @@ T["replace"]["<Plug>RgFarReplace replaces with empty string"] = function()
   mock_confirm(1)
 
   trigger_plug_map "<Plug>RgFarReplace"
-  wait_until(function()
-    return child.fn.readfile("test_dir/file1.txt")[1] == " world"
-      and child.fn.readfile("test_dir/file2.txt")[1] == " universe"
-      and child.fn.readfile("test_dir/subdir/file3.txt")[1] == " there"
-  end)
+  wait_for_file_lines {
+    { "test_dir/file1.txt", { " world", "foo bar" } },
+    { "test_dir/file2.txt", { " universe", "baz qux" } },
+    { "test_dir/subdir/file3.txt", { " there", "nested content" } },
+  }
 end
 
 T["replace"]["<Plug>RgFarReplace respects manual edits to results"] = function()
@@ -447,11 +492,11 @@ T["replace"]["<Plug>RgFarReplace respects manual edits to results"] = function()
 
   mock_confirm(1)
   trigger_plug_map "<Plug>RgFarReplace"
-  wait_until(function()
-    return child.fn.readfile("test_dir/file1.txt")[1] == "custom replacement"
-      and child.fn.readfile("test_dir/file2.txt")[1] == "another custom text"
-      and child.fn.readfile("test_dir/subdir/file3.txt")[1] == "manually edited"
-  end)
+  wait_for_file_lines {
+    { "test_dir/file1.txt", { "custom replacement", "foo bar" } },
+    { "test_dir/file2.txt", { "another custom text", "baz qux" } },
+    { "test_dir/subdir/file3.txt", { "manually edited", "nested content" } },
+  }
 end
 
 T["replace"]["<Plug>RgFarReplace handles multiple matches per file"] = function()
@@ -469,12 +514,9 @@ T["replace"]["<Plug>RgFarReplace handles multiple matches per file"] = function(
 
   mock_confirm(1)
   trigger_plug_map "<Plug>RgFarReplace"
-  wait_until(function()
-    local contents = child.fn.readfile "test_dir/multi.txt"
-    return contents[1] == "replaced bar"
-      and contents[2] == "replaced baz"
-      and contents[3] == "replaced qux"
-  end)
+  wait_for_file_lines {
+    { "test_dir/multi.txt", { "replaced bar", "replaced baz", "replaced qux" } },
+  }
 end
 
 T["replace"]["<Plug>RgFarReplace only replaces non-deleted results"] = function()
@@ -504,10 +546,10 @@ T["replace"]["<Plug>RgFarReplace only replaces non-deleted results"] = function(
 
   mock_confirm(1)
   trigger_plug_map "<Plug>RgFarReplace"
-  wait_until(function()
-    return child.fn.readfile("test_dir/file2.txt")[1] == "hello universe"
-      and child.fn.readfile("test_dir/subdir/file3.txt")[1] == "hello there"
-  end)
+  wait_for_file_lines {
+    { "test_dir/file2.txt", { "hello universe", "baz qux" } },
+    { "test_dir/subdir/file3.txt", { "hello there", "nested content" } },
+  }
 
   eq(child.fn.readfile("test_dir/file1.txt")[1], "goodbye world")
 end
@@ -584,12 +626,26 @@ T["results buffer"]["re-highlights on manual edit"] = function()
   child.api.nvim_set_current_win(get_results_window())
   child.cmd "normal! dd"
 
-  wait_until(function()
-    local marks = child.api.nvim_buf_get_extmarks(results_buf, ns, 0, -1, { details = true })
-    return #get_non_empty_lines(child.api.nvim_buf_get_lines(results_buf, 0, -1, false)) == 2
-      and #get_conceal_marks(marks) == 2
-      and #get_virt_line_marks(marks) == 2
-  end)
+  local extmarks_updated = child.lua_func(function(buf, namespace)
+    return vim.wait(5000, function()
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      local non_empty_lines = vim.tbl_filter(function(line)
+        return line ~= ""
+      end, lines)
+
+      local marks = vim.api.nvim_buf_get_extmarks(buf, namespace, 0, -1, { details = true })
+      local conceal_marks = vim.tbl_filter(function(mark)
+        return mark[4].conceal ~= nil
+      end, marks)
+
+      local virtual_line_marks = vim.tbl_filter(function(mark)
+        return mark[4].virt_lines ~= nil
+      end, marks)
+
+      return #non_empty_lines == 2 and #conceal_marks == 2 and #virtual_line_marks == 2
+    end, 10)
+  end, results_buf, ns)
+  eq(extmarks_updated, true)
 end
 
 T["quickfix"] = MiniTest.new_set()
@@ -715,11 +771,7 @@ T["refresh"]["<Plug>RgFarRefreshResults refreshes results"] = function()
   child.fn.writefile({ "goodbye friend", "foo bar" }, "test_dir/file1.txt")
 
   trigger_plug_map "<Plug>RgFarRefreshResults"
-  wait_until(function()
-    return vim.iter(child.api.nvim_buf_get_lines(results_buf, 0, -1, false)):any(function(line)
-      return line:find("goodbye friend", 1, true) ~= nil
-    end)
-  end)
+  wait_for_result_text(results_buf, "goodbye friend")
 
   local results_after = child.api.nvim_buf_get_lines(results_buf, 0, -1, false)
   local non_empty_after = get_non_empty_lines(results_after)
