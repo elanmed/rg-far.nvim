@@ -1,1 +1,1 @@
-require "rg-far".setup()
+require("rg-far").setup()

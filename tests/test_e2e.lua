@@ -1,4 +1,4 @@
-require "mini.test".setup()
+require("mini.test").setup()
 
 local eq = MiniTest.expect.equality
 local child = MiniTest.new_child_neovim()
@@ -18,8 +18,12 @@ end
 local validate_confirm_args = function(ref_msg_pattern)
   local args = child.lua_get "_G.confirm_args"
   eq(args[1], ref_msg_pattern)
-  if args[2] ~= nil then eq(args[2], "&Yes\n&No") end
-  if args[3] ~= nil then eq(args[3], 2) end
+  if args[2] ~= nil then
+    eq(args[2], "&Yes\n&No")
+  end
+  if args[3] ~= nil then
+    eq(args[3], 2)
+  end
 end
 
 local get_rg_far_windows = function()
@@ -27,10 +31,10 @@ local get_rg_far_windows = function()
   local rg_far_wins = {}
   for _, win in ipairs(wins) do
     local buf = child.api.nvim_win_get_buf(win)
-    local ft = child.api.nvim_get_option_value("filetype", { buf = buf, })
+    local ft = child.api.nvim_get_option_value("filetype", { buf = buf })
     if ft == "rg-far" then
       local winbar = child.api.nvim_win_get_option(win, "winbar")
-      table.insert(rg_far_wins, { winnr = win, bufnr = buf, winbar = winbar, })
+      table.insert(rg_far_wins, { winnr = win, bufnr = buf, winbar = winbar })
     end
   end
   return rg_far_wins
@@ -65,7 +69,7 @@ local type_in_input_buffer = function(line_index, text)
     local winbar = child.api.nvim_win_get_option(win, "winbar")
     if is_input_window(winbar) then
       local buf = child.api.nvim_win_get_buf(win)
-      child.api.nvim_buf_set_lines(buf, line_index, line_index + 1, false, { text, })
+      child.api.nvim_buf_set_lines(buf, line_index, line_index + 1, false, { text })
       return
     end
   end
@@ -77,27 +81,36 @@ local trigger_plug_map = function(map_name)
 end
 
 local get_conceal_marks = function(extmarks)
-  return vim.iter(extmarks):filter(function(mark)
-    return mark[4].conceal ~= nil
-  end):totable()
+  return vim
+    .iter(extmarks)
+    :filter(function(mark)
+      return mark[4].conceal ~= nil
+    end)
+    :totable()
 end
 
 local get_virt_line_marks = function(extmarks)
-  return vim.iter(extmarks):filter(function(mark)
-    return mark[4].virt_lines ~= nil
-  end):totable()
+  return vim
+    .iter(extmarks)
+    :filter(function(mark)
+      return mark[4].virt_lines ~= nil
+    end)
+    :totable()
 end
 
 local get_non_empty_lines = function(lines)
-  return vim.iter(lines):filter(function(line)
-    return line ~= ""
-  end):totable()
+  return vim
+    .iter(lines)
+    :filter(function(line)
+      return line ~= ""
+    end)
+    :totable()
 end
 
 local T = MiniTest.new_set {
   hooks = {
     pre_case = function()
-      child.restart { "-u", "scripts/minimal_init.lua", }
+      child.restart { "-u", "scripts/minimal_init.lua" }
       child.bo.readonly = false
       child.lua [[M = require('rg-far')]]
       child.lua [[M.setup()]]
@@ -105,12 +118,12 @@ local T = MiniTest.new_set {
       child.o.columns = 80
 
       vim.fn.mkdir("test_dir", "p")
-      vim.fn.writefile({ "goodbye world", "foo bar", }, "test_dir/file1.txt")
-      vim.fn.writefile({ "goodbye universe", "baz qux", }, "test_dir/file2.txt")
-      vim.fn.writefile({ "foo bar", "foo baz", "foo qux", }, "test_dir/multi.txt")
-      vim.fn.writefile({ "line one", "foo bar", "line three", }, "test_dir/cursor_test.txt")
+      vim.fn.writefile({ "goodbye world", "foo bar" }, "test_dir/file1.txt")
+      vim.fn.writefile({ "goodbye universe", "baz qux" }, "test_dir/file2.txt")
+      vim.fn.writefile({ "foo bar", "foo baz", "foo qux" }, "test_dir/multi.txt")
+      vim.fn.writefile({ "line one", "foo bar", "line three" }, "test_dir/cursor_test.txt")
       vim.fn.mkdir("test_dir/subdir", "p")
-      vim.fn.writefile({ "goodbye there", "nested content", }, "test_dir/subdir/file3.txt")
+      vim.fn.writefile({ "goodbye there", "nested content" }, "test_dir/subdir/file3.txt")
     end,
     post_case = function()
       vim.fn.delete("test_dir", "rf")
@@ -118,7 +131,6 @@ local T = MiniTest.new_set {
     post_once = child.stop,
   },
 }
-
 
 T["M.open()"] = MiniTest.new_set()
 T["M.open()"]["opens the interface with three windows"] = function()
@@ -487,9 +499,9 @@ T["replace"]["<Plug>RgFarReplace only replaces non-deleted results"] = function(
   trigger_plug_map "<Plug>RgFarReplace"
   vim.uv.sleep(delay)
 
-  eq(child.fn.readfile "test_dir/file1.txt"[1], "goodbye world")
-  eq(child.fn.readfile "test_dir/file2.txt"[1], "hello universe")
-  eq(child.fn.readfile "test_dir/subdir/file3.txt"[1], "hello there")
+  eq(child.fn.readfile("test_dir/file1.txt")[1], "goodbye world")
+  eq(child.fn.readfile("test_dir/file2.txt")[1], "hello universe")
+  eq(child.fn.readfile("test_dir/subdir/file3.txt")[1], "hello there")
 end
 
 T["window management"] = MiniTest.new_set()
@@ -553,7 +565,8 @@ T["results buffer"]["re-highlights on manual edit"] = function()
   eq(#non_empty_before, 3)
 
   local ns = child.lua_get [[vim.api.nvim_create_namespace 'rg-far']]
-  local extmarks_before = child.api.nvim_buf_get_extmarks(results_buf, ns, 0, -1, { details = true, })
+  local extmarks_before =
+    child.api.nvim_buf_get_extmarks(results_buf, ns, 0, -1, { details = true })
 
   eq(#get_conceal_marks(extmarks_before), 3)
   eq(#get_virt_line_marks(extmarks_before), 3)
@@ -565,7 +578,7 @@ T["results buffer"]["re-highlights on manual edit"] = function()
   local non_empty_after = get_non_empty_lines(lines_after)
   eq(#non_empty_after, 2)
 
-  local extmarks_after = child.api.nvim_buf_get_extmarks(results_buf, ns, 0, -1, { details = true, })
+  local extmarks_after = child.api.nvim_buf_get_extmarks(results_buf, ns, 0, -1, { details = true })
 
   eq(#get_conceal_marks(extmarks_after), 2)
   eq(#get_virt_line_marks(extmarks_after), 2)
@@ -586,18 +599,25 @@ T["quickfix"]["<Plug>RgFarResultsToQfList sends results to quickfix"] = function
 
   eq(#qf_list, 3)
 
-  local actual = vim.iter(qf_list):map(function(entry)
-    return { lnum = entry.lnum, text = entry.text, }
-  end):totable()
+  local actual = vim
+    .iter(qf_list)
+    :map(function(entry)
+      return { lnum = entry.lnum, text = entry.text }
+    end)
+    :totable()
 
   local expected = {
-    { lnum = 1, text = "goodbye world", },
-    { lnum = 1, text = "goodbye universe", },
-    { lnum = 1, text = "goodbye there", },
+    { lnum = 1, text = "goodbye world" },
+    { lnum = 1, text = "goodbye universe" },
+    { lnum = 1, text = "goodbye there" },
   }
 
-  table.sort(actual, function(a, b) return a.text < b.text end)
-  table.sort(expected, function(a, b) return a.text < b.text end)
+  table.sort(actual, function(a, b)
+    return a.text < b.text
+  end)
+  table.sort(expected, function(a, b)
+    return a.text < b.text
+  end)
 
   eq(actual, expected)
 end
@@ -684,7 +704,7 @@ T["refresh"]["<Plug>RgFarRefreshResults refreshes results"] = function()
   local non_empty_before = get_non_empty_lines(results_before)
   eq(#non_empty_before, 3)
 
-  child.fn.writefile({ "goodbye friend", "foo bar", }, "test_dir/file1.txt")
+  child.fn.writefile({ "goodbye friend", "foo bar" }, "test_dir/file1.txt")
 
   trigger_plug_map "<Plug>RgFarRefreshResults"
   vim.uv.sleep(delay)
@@ -694,9 +714,12 @@ T["refresh"]["<Plug>RgFarRefreshResults refreshes results"] = function()
 
   eq(#non_empty_after, 3)
 
-  eq(vim.iter(non_empty_after):any(function(line)
-    return line:find("goodbye friend", 1, true)
-  end), true)
+  eq(
+    vim.iter(non_empty_after):any(function(line)
+      return line:find("goodbye friend", 1, true)
+    end),
+    true
+  )
 end
 
 return T

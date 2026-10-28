@@ -1,6 +1,6 @@
 local M = {}
 
-local augroup = vim.api.nvim_create_augroup("RgFar", { clear = true, })
+local augroup = vim.api.nvim_create_augroup("RgFar", { clear = true })
 
 local state = {
   input_winnr = -1,
@@ -33,7 +33,9 @@ end
 --- @param tbl table
 --- @param ... any
 local tbl_get = function(tbl, ...)
-  if tbl == nil then return nil end
+  if tbl == nil then
+    return nil
+  end
   return vim.tbl_get(tbl, ...)
 end
 
@@ -66,7 +68,9 @@ local system_obj
 --- @param nrs NrOpts
 local results_to_qf_list = function(nrs)
   local lines = vim.api.nvim_buf_get_lines(nrs.results_bufnr, 0, -1, false)
-  lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
+  lines = vim.tbl_filter(function(line)
+    return line ~= ""
+  end, lines)
 
   local qf_list = {}
   for _, line in ipairs(lines) do
@@ -109,7 +113,7 @@ local init_windows_buffers = function()
     end
 
     local bufnr = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "", "", "", })
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "", "", "" })
     state.input_bufnr = bufnr
 
     return bufnr
@@ -149,12 +153,20 @@ local init_windows_buffers = function()
 
   vim.api.nvim_create_autocmd("WinClosed", {
     group = augroup,
-    pattern = { tostring(stderr_winnr), tostring(input_winnr), tostring(results_winnr), },
+    pattern = { tostring(stderr_winnr), tostring(input_winnr), tostring(results_winnr) },
     callback = function()
-      if system_obj then system_obj:kill "sigterm" end
-      if vim.api.nvim_win_is_valid(input_winnr) then vim.api.nvim_win_close(input_winnr, false) end
-      if vim.api.nvim_win_is_valid(results_winnr) then vim.api.nvim_win_close(results_winnr, false) end
-      if vim.api.nvim_win_is_valid(stderr_winnr) then vim.api.nvim_win_close(stderr_winnr, false) end
+      if system_obj then
+        system_obj:kill "sigterm"
+      end
+      if vim.api.nvim_win_is_valid(input_winnr) then
+        vim.api.nvim_win_close(input_winnr, false)
+      end
+      if vim.api.nvim_win_is_valid(results_winnr) then
+        vim.api.nvim_win_close(results_winnr, false)
+      end
+      if vim.api.nvim_win_is_valid(stderr_winnr) then
+        vim.api.nvim_win_close(stderr_winnr, false)
+      end
     end,
   })
 
@@ -182,7 +194,7 @@ local highlight_and_set_input_buf = function(nrs)
     local idx_0i = opts.idx_1i - 1
     vim.api.nvim_buf_set_extmark(nrs.input_bufnr, ns_id, idx_0i, 0, {
       virt_lines = {
-        { { opts.label, "RgFarLabel", }, },
+        { { opts.label, "RgFarLabel" } },
       },
     })
   end
@@ -200,9 +212,9 @@ local highlight_and_set_input_buf = function(nrs)
   vim.api.nvim_buf_set_lines(nrs.input_bufnr, 0, -1, false, buffer_lines)
   lines = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 0, -1, false)
 
-  set_input_buf_extmark { idx_1i = 1, label = "Find", }
-  set_input_buf_extmark { idx_1i = 2, label = "Replace", }
-  set_input_buf_extmark { idx_1i = 3, label = "Flags", }
+  set_input_buf_extmark { idx_1i = 1, label = "Find" }
+  set_input_buf_extmark { idx_1i = 2, label = "Replace" }
+  set_input_buf_extmark { idx_1i = 3, label = "Flags" }
 
   vim.api.nvim_win_set_height(nrs.input_winnr, #lines + 3 + 1)
 end
@@ -214,7 +226,9 @@ local highlight_results_buf = function(nrs)
   local next_filename = nil
   local curr_filename = nil
   local lines = vim.api.nvim_buf_get_lines(nrs.results_bufnr, 0, -1, false)
-  lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
+  lines = vim.tbl_filter(function(line)
+    return line ~= ""
+  end, lines)
 
   --- @param idx_1i number
   --- @param line string
@@ -229,28 +243,36 @@ local highlight_results_buf = function(nrs)
     curr_filename = unpack(vim.split(line, "|"))
 
     next_filename = (function()
-      if lines[idx_1i + 1] == nil then return nil end
+      if lines[idx_1i + 1] == nil then
+        return nil
+      end
       return unpack(vim.split(lines[idx_1i + 1], "|"))
     end)()
 
     if curr_filename ~= next_filename then
       vim.api.nvim_buf_set_extmark(nrs.results_bufnr, ns_id, idx_0i, 0, {
         virt_lines = {
-          { { curr_filename, "ModeMsg", }, },
-          { { "", "", }, },
+          { { curr_filename, "ModeMsg" } },
+          { { "", "" } },
         },
       })
     end
   end
 
-  a.throttled_iterator(function() return ipairs(lines) end, { on_iteration = highlight_result, })(function() end)
+  a.throttled_iterator(function()
+    return ipairs(lines)
+  end, { on_iteration = highlight_result })(function() end)
 end
 
 local timer_id = nil
 --- @param nrs NrOpts
 local populate_and_highlight_results = function(nrs)
-  if timer_id then vim.fn.timer_stop(timer_id) end
-  if system_obj then system_obj:kill "sigterm" end
+  if timer_id then
+    vim.fn.timer_stop(timer_id)
+  end
+  if system_obj then
+    system_obj:kill "sigterm"
+  end
   local gopts = get_gopts()
 
   --- @class SetStateOpts
@@ -264,7 +286,7 @@ local populate_and_highlight_results = function(nrs)
 
     vim.wo[nrs.input_winnr].winbar = opts.rg_cmd
 
-    local stderr = vim.split(opts.stderr, "\n", { trimempty = true, })
+    local stderr = vim.split(opts.stderr, "\n", { trimempty = true })
     vim.api.nvim_win_set_height(nrs.stderr_winnr, #stderr + 1)
 
     vim.bo[nrs.stderr_bufnr].modifiable = true
@@ -283,67 +305,85 @@ local populate_and_highlight_results = function(nrs)
 
     local find = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 0, 1, false)[1]
     if find == "" then
-      set_state { results = {}, }
+      set_state { results = {} }
       return
     end
 
     local replace_flag = (function()
       local replace_lines = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 1, 2, false)
-      if #replace_lines == 0 then return {} end
-      if #replace_lines == 1 and replace_lines[1] == "" then return {} end
-      return { "--replace", replace_lines[1], }
+      if #replace_lines == 0 then
+        return {}
+      end
+      if #replace_lines == 1 and replace_lines[1] == "" then
+        return {}
+      end
+      return { "--replace", replace_lines[1] }
     end)()
 
     local flags = (function()
       local flag_lines = vim.api.nvim_buf_get_lines(nrs.input_bufnr, 2, 3, false)
-      if #flag_lines == 0 then return {} end
-      if #flag_lines == 1 and flag_lines[1] == "" then return {} end
-      return vim.split(flag_lines[1], "%s+", { trimempty = true, })
+      if #flag_lines == 0 then
+        return {}
+      end
+      if #flag_lines == 1 and flag_lines[1] == "" then
+        return {}
+      end
+      return vim.split(flag_lines[1], "%s+", { trimempty = true })
     end)()
 
+    local args = vim
+      .iter({
+        "rg",
+        "--with-filename",
+        "--no-heading",
+        "--line-number",
+        replace_flag,
+        "--field-match-separator",
+        "'|'",
+        flags,
+        "--",
+        find,
+      })
+      :flatten()
+      :totable()
 
-    local args = vim.iter {
-          "rg",
-          "--with-filename",
-          "--no-heading",
-          "--line-number",
-          replace_flag,
-          "--field-match-separator",
-          "'|'",
-          flags,
-          "--",
-          find,
-        }
-        :flatten()
-        :totable()
-
-    local pretty_args = vim.iter { replace_flag, flags, "--", find, }:flatten():totable()
+    local pretty_args = vim.iter({ replace_flag, flags, "--", find }):flatten():totable()
     local pretty_rg_cmd = ("rg ... %s"):format(table.concat(pretty_args, " "))
 
     vim.wo[nrs.results_winnr].winbar = "Results (loading ...)"
 
     -- outsource escaping to the shell
-    local rg_cmd = { "sh", "-c", table.concat(args, " "), }
+    local rg_cmd = { "sh", "-c", table.concat(args, " ") }
 
     state.loading_results = true
     system_obj = vim.system(rg_cmd, {}, function(out)
       state.loading_results = false
-      if curr_batch_id ~= global_batch_id then return end
+      if curr_batch_id ~= global_batch_id then
+        return
+      end
 
       if out.code ~= 0 then
-        vim.schedule(function() set_state { results = {}, rg_cmd = pretty_rg_cmd, stderr = out.stderr, } end)
+        vim.schedule(function()
+          set_state { results = {}, rg_cmd = pretty_rg_cmd, stderr = out.stderr }
+        end)
         return
       end
 
       if out.stdout == nil then
-        vim.schedule(function() set_state { results = {}, rg_cmd = pretty_rg_cmd, stderr = out.stderr, } end)
+        vim.schedule(function()
+          set_state { results = {}, rg_cmd = pretty_rg_cmd, stderr = out.stderr }
+        end)
         return
       end
 
-      local lines = vim.split(out.stdout, "\n", { trimempty = true, })
-      lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
+      local lines = vim.split(out.stdout, "\n", { trimempty = true })
+      lines = vim.tbl_filter(function(line)
+        return line ~= ""
+      end, lines)
 
-      vim.schedule(function() set_state { rg_cmd = pretty_rg_cmd, stderr = out.stderr, results = lines, } end)
+      vim.schedule(function()
+        set_state { rg_cmd = pretty_rg_cmd, stderr = out.stderr, results = lines }
+      end)
     end)
   end)
 end
@@ -356,7 +396,9 @@ replace = function(nrs)
   end
 
   local lines = vim.api.nvim_buf_get_lines(nrs.results_bufnr, 0, -1, false)
-  lines = vim.tbl_filter(function(line) return line ~= "" end, lines)
+  lines = vim.tbl_filter(function(line)
+    return line ~= ""
+  end, lines)
 
   local option = vim.fn.confirm(("[rg-far] Apply %d replacements?"):format(#lines), "&Yes\n&No", 2)
   if option ~= 1 then
@@ -378,15 +420,16 @@ replace = function(nrs)
       file_lines[row_1i] = text
       vim.fn.writefile(file_lines, filename)
     else
-      vim.api.nvim_buf_set_lines(bufnr, row_0i, row_0i + 1, false, { text, })
-      vim.api.nvim_buf_call(bufnr, function() vim.cmd "silent! write!" end)
+      vim.api.nvim_buf_set_lines(bufnr, row_0i, row_0i + 1, false, { text })
+      vim.api.nvim_buf_call(bufnr, function()
+        vim.cmd "silent! write!"
+      end)
     end
   end
 
-  a.await(a.throttled_iterator(
-    function() return ipairs(lines) end,
-    { on_iteration = replace_result, }
-  ))
+  a.await(a.throttled_iterator(function()
+    return ipairs(lines)
+  end, { on_iteration = replace_result }))
 
   vim.bo[nrs.stderr_bufnr].modifiable = true
   vim.bo[nrs.input_bufnr].modifiable = true
@@ -397,16 +440,18 @@ end
 
 --- @param nrs NrOpts
 local init_plug_remaps = function(nrs)
-  for _, buffer in ipairs { nrs.stderr_bufnr, nrs.input_bufnr, nrs.results_bufnr, } do
+  for _, buffer in ipairs { nrs.stderr_bufnr, nrs.input_bufnr, nrs.results_bufnr } do
     vim.keymap.set("n", "<Plug>RgFarReplace", function()
       local spawn = a.make_spawn(replace)
       spawn(nrs)
-    end, { buffer = buffer, })
-    vim.keymap.set("n", "<Plug>RgFarResultsToQfList", function() results_to_qf_list(nrs) end, { buffer = buffer, })
+    end, { buffer = buffer })
+    vim.keymap.set("n", "<Plug>RgFarResultsToQfList", function()
+      results_to_qf_list(nrs)
+    end, { buffer = buffer })
     vim.keymap.set("n", "<Plug>RgFarRefreshResults", function()
       notify(vim.log.levels.INFO, "[rg-far] Refreshing results")
       populate_and_highlight_results(nrs)
-    end, { buffer = buffer, })
+    end, { buffer = buffer })
   end
 
   vim.keymap.set("n", "<Plug>RgFarOpenResult", function()
@@ -415,8 +460,8 @@ local init_plug_remaps = function(nrs)
     vim.api.nvim_win_call(state.curr_winnr, function()
       vim.cmd.edit(filename)
     end)
-    vim.api.nvim_win_set_cursor(state.curr_winnr, { tonumber(row_1i), 0, })
-  end, { buffer = nrs.results_bufnr, })
+    vim.api.nvim_win_set_cursor(state.curr_winnr, { tonumber(row_1i), 0 })
+  end, { buffer = nrs.results_bufnr })
 
   vim.keymap.set("n", "<Plug>RgFarClose", function()
     if vim.api.nvim_win_is_valid(state.input_winnr) then
@@ -427,10 +472,10 @@ end
 
 --- @param nrs NrOpts
 local init_keymap_overrides = function(nrs)
-  for _, buffer in ipairs { nrs.results_bufnr, } do
-    vim.keymap.set("i", "<cr>", "<nop>", { buffer = buffer, })
-    vim.keymap.set("n", "o", "<nop>", { buffer = buffer, })
-    vim.keymap.set("n", "O", "<nop>", { buffer = buffer, })
+  for _, buffer in ipairs { nrs.results_bufnr } do
+    vim.keymap.set("i", "<cr>", "<nop>", { buffer = buffer })
+    vim.keymap.set("n", "o", "<nop>", { buffer = buffer })
+    vim.keymap.set("n", "O", "<nop>", { buffer = buffer })
   end
 end
 
@@ -441,14 +486,14 @@ M.open = function()
     return notify(vim.log.levels.INFO, "[rg-far] Already open")
   end
 
-  vim.api.nvim_clear_autocmds { group = augroup, }
+  vim.api.nvim_clear_autocmds { group = augroup }
 
   local nrs = init_windows_buffers()
   init_plug_remaps(nrs)
   init_keymap_overrides(nrs)
   highlight_and_set_input_buf(nrs)
 
-  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
+  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
     group = augroup,
     buffer = nrs.input_bufnr,
     callback = function()
@@ -457,18 +502,22 @@ M.open = function()
     end,
   })
 
-  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", }, {
+  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
     group = augroup,
     buffer = nrs.results_bufnr,
-    callback = function() highlight_results_buf(nrs) end,
+    callback = function()
+      highlight_results_buf(nrs)
+    end,
   })
 end
 
 local setup_called = false
 M.setup = function()
-  if setup_called then return end
+  if setup_called then
+    return
+  end
   setup_called = true
-  vim.api.nvim_set_hl(0, "RgFarLabel", { default = true, link = "ModeMsg", })
+  vim.api.nvim_set_hl(0, "RgFarLabel", { default = true, link = "ModeMsg" })
 end
 
 return M
