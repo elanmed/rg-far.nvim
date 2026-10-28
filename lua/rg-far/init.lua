@@ -143,9 +143,9 @@ local init_windows_buffers = function()
   vim.wo[results_winnr].conceallevel = 2
   vim.wo[results_winnr].concealcursor = "nvic"
 
-  vim.api.nvim_win_set_height(stderr_winnr, 1)
-  vim.api.nvim_win_set_height(input_winnr, 3 + 1)
-  vim.api.nvim_win_set_width(results_winnr, math.floor(vim.o.columns * gopts.drawer_width))
+  vim.api.nvim_win_resize(stderr_winnr, -1, 1)
+  vim.api.nvim_win_resize(input_winnr, -1, 3 + 1)
+  vim.api.nvim_win_resize(results_winnr, math.floor(vim.o.columns * gopts.drawer_width), -1)
 
   vim.bo[stderr_bufnr].filetype = "rg-far"
   vim.bo[input_bufnr].filetype = "rg-far"
@@ -216,7 +216,7 @@ local highlight_and_set_input_buf = function(nrs)
   set_input_buf_extmark { idx_1i = 2, label = "Replace" }
   set_input_buf_extmark { idx_1i = 3, label = "Flags" }
 
-  vim.api.nvim_win_set_height(nrs.input_winnr, #lines + 3 + 1)
+  vim.api.nvim_win_resize(nrs.input_winnr, -1, #lines + 3 + 1)
 end
 
 --- @param nrs NrOpts
@@ -295,7 +295,7 @@ local populate_and_highlight_results = function(nrs)
     vim.wo[nrs.input_winnr].winbar = opts.rg_cmd
 
     local stderr = vim.split(opts.stderr, "\n", { trimempty = true })
-    vim.api.nvim_win_set_height(nrs.stderr_winnr, #stderr + 1)
+    vim.api.nvim_win_resize(nrs.stderr_winnr, -1, #stderr + 1)
 
     vim.bo[nrs.stderr_bufnr].modifiable = true
     vim.api.nvim_buf_set_lines(nrs.stderr_bufnr, 0, -1, false, stderr)
