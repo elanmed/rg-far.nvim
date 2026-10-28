@@ -51,7 +51,7 @@ local get_gopts = function()
   return opts
 end
 
-local a = require "rg-far.async"
+local async_helpers = require "rg-far.async"
 
 local ns_id = vim.api.nvim_create_namespace "rg-far"
 local global_batch_id = 0
@@ -155,7 +155,7 @@ local init_windows_buffers = function()
     group = augroup,
     pattern = { tostring(stderr_winnr), tostring(input_winnr), tostring(results_winnr) },
     callback = function()
-      if system_obj then
+      if system_obj and not system_obj:is_closing() then
         system_obj:kill "sigterm"
       end
       if vim.api.nvim_win_is_valid(input_winnr) then
@@ -259,9 +259,16 @@ local highlight_results_buf = function(nrs)
     end
   end
 
-  a.throttled_iterator(function()
-    return ipairs(lines)
-  end, { on_iteration = highlight_result })(function() end)
+  vim.async
+    .run("highlight_results_task", function()
+      async_helpers.throttled_iterator {
+        iterator_factory = function()
+          return ipairs(lines)
+        end,
+        on_iteration = highlight_result,
+      }
+    end)
+    :raise_on_error()
 end
 
 local timer_id = nil
@@ -270,9 +277,10 @@ local populate_and_highlight_results = function(nrs)
   if timer_id then
     vim.fn.timer_stop(timer_id)
   end
-  if system_obj then
+  if system_obj and not system_obj:is_closing() then
     system_obj:kill "sigterm"
   end
+  state.loading_results = false
   local gopts = get_gopts()
 
   --- @class SetStateOpts
@@ -357,31 +365,27 @@ local populate_and_highlight_results = function(nrs)
 
     state.loading_results = true
     system_obj = vim.system(rg_cmd, {}, function(out)
-      state.loading_results = false
-      if curr_batch_id ~= global_batch_id then
-        return
-      end
-
-      if out.code ~= 0 then
-        vim.schedule(function()
-          set_state { results = {}, rg_cmd = pretty_rg_cmd, stderr = out.stderr }
-        end)
-        return
-      end
-
-      if out.stdout == nil then
-        vim.schedule(function()
-          set_state { results = {}, rg_cmd = pretty_rg_cmd, stderr = out.stderr }
-        end)
-        return
-      end
-
-      local lines = vim.split(out.stdout, "\n", { trimempty = true })
-      lines = vim.tbl_filter(function(line)
-        return line ~= ""
-      end, lines)
-
       vim.schedule(function()
+        if curr_batch_id ~= global_batch_id then
+          return
+        end
+        state.loading_results = false
+
+        if out.code ~= 0 then
+          set_state { results = {}, rg_cmd = pretty_rg_cmd, stderr = out.stderr }
+          return
+        end
+
+        if out.stdout == nil then
+          set_state { results = {}, rg_cmd = pretty_rg_cmd, stderr = out.stderr }
+          return
+        end
+
+        local lines = vim.split(out.stdout, "\n", { trimempty = true })
+        lines = vim.tbl_filter(function(line)
+          return line ~= ""
+        end, lines)
+
         set_state { rg_cmd = pretty_rg_cmd, stderr = out.stderr, results = lines }
       end)
     end)
@@ -427,23 +431,29 @@ replace = function(nrs)
     end
   end
 
-  a.await(a.throttled_iterator(function()
-    return ipairs(lines)
-  end, { on_iteration = replace_result }))
+  vim.async
+    .run("replace_task", function()
+      async_helpers.throttled_iterator {
+        iterator_factory = function()
+          return ipairs(lines)
+        end,
+        on_iteration = replace_result,
+      }
 
-  vim.bo[nrs.stderr_bufnr].modifiable = true
-  vim.bo[nrs.input_bufnr].modifiable = true
-  vim.bo[nrs.results_bufnr].modifiable = true
+      vim.bo[nrs.stderr_bufnr].modifiable = true
+      vim.bo[nrs.input_bufnr].modifiable = true
+      vim.bo[nrs.results_bufnr].modifiable = true
 
-  populate_and_highlight_results(nrs)
+      populate_and_highlight_results(nrs)
+    end)
+    :raise_on_error()
 end
 
 --- @param nrs NrOpts
 local init_plug_remaps = function(nrs)
   for _, buffer in ipairs { nrs.stderr_bufnr, nrs.input_bufnr, nrs.results_bufnr } do
     vim.keymap.set("n", "<Plug>RgFarReplace", function()
-      local spawn = a.make_spawn(replace)
-      spawn(nrs)
+      replace(nrs)
     end, { buffer = buffer })
     vim.keymap.set("n", "<Plug>RgFarResultsToQfList", function()
       results_to_qf_list(nrs)
