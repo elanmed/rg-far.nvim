@@ -147,10 +147,6 @@ local init_windows_buffers = function()
   vim.api.nvim_win_resize(input_winnr, -1, 3 + 1)
   vim.api.nvim_win_resize(results_winnr, math.floor(vim.o.columns * gopts.drawer_width), -1)
 
-  vim.bo[stderr_bufnr].filetype = "rg-far"
-  vim.bo[input_bufnr].filetype = "rg-far"
-  vim.bo[results_bufnr].filetype = "rg-far"
-
   vim.api.nvim_create_autocmd("WinClosed", {
     group = augroup,
     pattern = { tostring(stderr_winnr), tostring(input_winnr), tostring(results_winnr) },
@@ -501,6 +497,11 @@ M.open = function()
   local nrs = init_windows_buffers()
   init_plug_remaps(nrs)
   init_keymap_overrides(nrs)
+
+  vim.bo[nrs.stderr_bufnr].filetype = "rg-far"
+  vim.bo[nrs.input_bufnr].filetype = "rg-far"
+  vim.bo[nrs.results_bufnr].filetype = "rg-far"
+
   highlight_and_set_input_buf(nrs)
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
